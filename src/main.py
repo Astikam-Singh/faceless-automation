@@ -74,6 +74,14 @@ def main():
     base_video = renderer.render(audio_path, segments)
     print(f"Base video ready: {base_video}")
     
+    # Generate thumbnail
+    print("\n[Generating thumbnail...]")
+    thumbnail_gen = ThumbnailGenerator()
+    title = script_data.get('title', 'Ancient Wisdom')
+    thumbnail_path = thumbnail_gen.generate_from_video(base_video, title)
+    if thumbnail_path:
+        print(f"✅ Thumbnail generated: {thumbnail_path}")
+    
     # 5. Create Multi-Format Videos
     print("\n[5/6] Creating multi-format videos...")
     formatter = VideoFormatter()
