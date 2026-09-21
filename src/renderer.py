@@ -3,10 +3,14 @@ import yaml
 from moviepy.editor import AudioFileClip, ColorClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips, vfx
 
 class VideoRenderer:
-    def __init__(self, config_path="config.yaml"):
+    def __init__(self, config_path="config.yaml", is_longform=False):
         with open(config_path, "r", encoding="utf-8") as f:
             self.config = yaml.load(f, Loader=yaml.SafeLoader)
-        self.width, self.height = self.config['niche']['resolution']
+        
+        # Select resolution based on format
+        res_key = 'resolution_longform' if is_longform else 'resolution_shortform'
+        self.width, self.height = self.config['niche'][res_key]
+        self.is_longform = is_longform
 
     def render(self, audio_path: str, script_segments: list, output_path: str = "output/final_video.mp4"):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)

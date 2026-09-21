@@ -22,15 +22,15 @@ class ThumbnailGenerator:
         
         # Brand colors
         self.colors = {
-            'background': '#1A1A1A',  # Dark charcoal
-            'accent': '#C9A227',      # Antique gold
-            'text': '#FFFFFF',        # White
-            'secondary': '#4A5568'    # Slate gray
+            'background': '#101010',      # Deep black-charcoal
+            'accent': '#FFD700',          # Bright Gold
+            'text': '#FFFFFF',            # White
+            'highlight': '#FF4500'        # Trendy "YouTube" Orange-Red
         }
     
     def generate_from_video(self, video_path, title, output_path=None):
         """
-        Generate thumbnail from video frame with custom styling.
+        Generate high-CTR thumbnail with trendy styling.
         """
         if not os.path.exists(video_path):
             print(f"❌ Video file not found: {video_path}")
@@ -40,71 +40,78 @@ class ThumbnailGenerator:
             base = os.path.splitext(video_path)[0]
             output_path = f"{base}_thumbnail.jpg"
         
-        # Extract frame from video (first 5 seconds or middle)
         try:
             clip = VideoFileClip(video_path)
-            duration = clip.duration
-            
-            # Get frame at 10% of duration (avoid black intro)
-            timestamp = min(duration * 0.1, 5)
+            # Take a dramatic high-contrast frame
+            timestamp = min(clip.duration * 0.5, 10) 
             frame = clip.get_frame(timestamp)
             clip.close()
             
             # Convert numpy array to PIL Image
-            img = Image.fromarray(frame.astype('uint8'))
+            img = Image.fromarray(frame.astype('uint8')).convert('RGB')
             
-            # Resize and crop to fill thumbnail dimensions
-            target_ratio = self.width / self.height
-            img_ratio = img.width / img.height
+            # Crop to fill high-quality aspect ratio
+            img = self._crop_to_aspect(img, self.width/self.height)
+            img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
             
-            if img_ratio > target_ratio:
-                # Clip is wider than target: resize height to match target
-                new_height = self.height
-                new_width = int(new_height * img_ratio)
-                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                left = (new_width - self.width) / 2
-                img = img.crop((left, 0, left + self.width, self.height))
-            else:
-                # Clip is taller than target: resize width to match target
-                new_width = self.width
-                new_height = int(new_width / img_ratio)
-                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                top = (new_height - self.height) / 2
-                img = img.crop((0, top, self.width, top + self.height))
+            # Apply dark tint for text contrast
+            tint = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 100))
+            img = Image.alpha_composite(img.convert('RGBA'), tint).convert('RGB')
             
-            # Add dark gradient overlay at bottom for text readability
-            for y in range(self.height - 200, self.height):
-                alpha = int(180 * (y - (self.height - 200)) / 200)
-                # Create a transparent overlay for this row
-                overlay_row = Image.new('RGBA', (self.width, 1), (0, 0, 0, alpha))
-                # Paste the overlay row onto the image
-                img = img.convert('RGBA')
-                img.paste(overlay_row, (0, y), overlay_row)
-            
-            img = img.convert('RGB')
-            
-            # Create draw object
             draw = ImageDraw.Draw(img)
             
-            # Add title text
-            self._add_text(draw, title, y_offset=50)
-            
-            # Add brand name
-            self._add_text(draw, self.brand_name, y_offset=120, font_size=24, color=self.colors['accent'])
+            # Add catchy text with high-contrast styling
+            self._add_trendy_text(draw, title)
             
             # Add logo if available
             if self.logo_path and os.path.exists(self.logo_path):
                 self._add_logo(img)
             
-            # Save thumbnail
             img.save(output_path, 'JPEG', quality=95)
-            print(f"✅ Thumbnail generated: {output_path}")
+            print(f"✅ Trendy thumbnail generated: {output_path}")
             return output_path
             
         except Exception as e:
             print(f"❌ Failed to generate thumbnail: {e}")
             return None
+
+    def _crop_to_aspect(self, img, target_ratio):
+        """Crop image to fit target aspect ratio."""
+        img_ratio = img.width / img.height
+        if img_ratio > target_ratio:
+            new_width = int(img.height * target_ratio)
+            left = (img.width - new_width) / 2
+            img = img.crop((left, 0, left + self.width, self.height))
+        else:
+            new_width = self.width
+            new_height = int(new_width / target_ratio)
+            top = (img.height - new_height) / 2
+            img = img.crop((0, top, self.width, top + self.height))
+        return img
     
+    def _add_trendy_text(self, draw, text):
+        """Add high-contrast, trendy text."""
+        # Try to find a bold, impactful font
+        try:
+            font = ImageFont.truetype("arialbd.ttf", 90) # Bold
+        except:
+            font = ImageFont.load_default()
+        
+        # Split text into two lines if long to make it pop
+        words = text.split()
+        mid = len(words) // 2
+        line1 = " ".join(words[:mid])
+        line2 = " ".join(words[mid:])
+        
+        # Add outline for text pop (High-CTR style)
+        for offset in [-3, 3]:
+            draw.text((100+offset, 200), line1.upper(), font=font, fill='black')
+            draw.text((100+offset, 300), line2.upper(), font=font, fill='black')
+            
+        # Draw main text in Gold
+        draw.text((100, 200), line1.upper(), font=font, fill=self.colors['accent'])
+        draw.text((100, 300), line2.upper(), font=font, fill=self.colors['text'])
+            
     def generate_static(self, title, subtitle=None, output_path=None):
         """
         Generate static thumbnail without video frame.

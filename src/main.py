@@ -47,10 +47,10 @@ def cleanup_old_files(config_path="config.yaml"):
 def main():
     print("=== Starting Ancient Mindset Lab Video Pipeline ===")
     
-    # 1. Generate Script
-    print("\n[1/6] Generating viral script via Gemini...")
+    # 1. Generate Script (Long-form request)
+    print("\n[1/6] Generating viral long-form script via Gemini...")
     script_gen = ScriptGenerator()
-    script_data = script_gen.generate_script()
+    script_data = script_gen.generate_script(is_longform=True)
     print(f"Title: {script_data.get('title')}")
     
     full_text = " ".join([seg['text'] for seg in script_data.get('segments', [])])
@@ -69,51 +69,40 @@ def main():
         prompt = seg.get('visual_prompt', 'cinematic dark aesthetic')
         fetcher.fetch_video(prompt, f"output/clip_{i}.mp4")
         
-    # 4. Render Base Video
+    # 4. Render Base Video (Longform)
     print("\n[4/6] Rendering base video with branding...")
-    renderer = VideoRenderer()
-    base_video = renderer.render(audio_path, segments)
-    print(f"Base video ready: {base_video}")
+    renderer_long = VideoRenderer(is_longform=True)
+    base_video_long = renderer_long.render(audio_path, segments)
+    print(f"Base video ready: {base_video_long}")
     
-    # Generate thumbnail
-    print("\n[Generating thumbnail...]")
-    thumbnail_gen = ThumbnailGenerator()
-    title = script_data.get('title', 'Ancient Wisdom')
-    thumbnail_path = thumbnail_gen.generate_from_video(base_video, title)
-    if thumbnail_path:
-        print(f"✅ Thumbnail generated: {thumbnail_path}")
+    # 5. Render Short-form (Vertical)
+    print("\n[5/6] Rendering short-form video (9:16)...")
+    renderer_short = VideoRenderer(is_longform=False)
+    base_video_short = renderer_short.render(audio_path, segments)
     
-    # 5. Create Multi-Format Videos
-    print("\n[5/6] Creating multi-format videos...")
-    formatter = VideoFormatter()
-    
-    longform_video = None
-    if os.path.exists(base_video):
-        if os.path.getsize(base_video) > 1024 * 1024:  # At least 1MB
-            # Create long-form YouTube video (10-12 mins)
-            longform_video = formatter.create_longform_video(base_video)
-            print(f"Long-form video ready: {longform_video}")
-            
-            # Create short-form for Reels/Shorts (45-60 secs)
-            shortform_video = formatter.create_shortform_video(base_video, max_duration=60)
-            print(f"Short-form video ready: {shortform_video}")
-        else:
-            print("⚠ Base video too small for format conversion")
+    # Publish...
+    # ...
     
     # 6. Auto-Publish to Social Media
     print("\n[6/6] Auto-publishing to social platforms...")
     
-    # Publish to YouTube
+    # Publish to YouTube (Longform)
     youtube_pub = YouTubePublisher()
-    if os.path.exists(base_video):
-        yt_result = youtube_pub.upload_video(script_data, base_video, thumbnail_path=thumbnail_path)
+    if os.path.exists(base_video_long):
+        # Generate thumbnail for longform
+        print("\n[Generating thumbnail...]")
+        thumbnail_gen = ThumbnailGenerator()
+        title = script_data.get('title', 'Ancient Wisdom')
+        thumbnail_path = thumbnail_gen.generate_from_video(base_video_long, title)
+        
+        yt_result = youtube_pub.upload_video(script_data, base_video_long, thumbnail_path=thumbnail_path)
         if yt_result:
             print(f"✅ YouTube upload successful: {yt_result.get('video_url', 'N/A')}")
     
-    # Publish to Instagram
+    # Publish to Instagram (Shortform)
     ig_pub = InstagramPublisher()
     if ig_pub.is_ready():
-        ig_result = ig_pub.upload_reel(script_data, base_video)
+        ig_result = ig_pub.upload_reel(script_data, base_video_short)
         if ig_result:
             print(f"✅ Instagram Reels upload successful: {ig_result.get('upload_url', 'N/A')}")
     else:
@@ -124,11 +113,8 @@ def main():
     cleanup_old_files()
     
     print(f"\n✨ Pipeline complete! Videos ready at output/")
-    print(f"   - Base video: {base_video}")
-    if longform_video:
-        print(f"   - Long-form: {longform_video}")
-    if shortform_video:
-        print(f"   - Short-form: {shortform_video}")
+    print(f"   - Long-form: {base_video_long}")
+    print(f"   - Short-form: {base_video_short}")
 
 if __name__ == "__main__":
     main()

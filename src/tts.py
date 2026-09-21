@@ -15,6 +15,9 @@ class TextToSpeech:
 
     def generate_voiceover(self, text: str, output_path: str = "output/voiceover.mp3"):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        # Using a slightly more expressive voice style to reduce "static" feel
+        # Edge-tts supports Prosody, we can use <prosody> tags for better human-like intensity
+        text = f'<prosody pitch="+5%" rate="slow">{text}</prosody>'
         asyncio.run(self._generate(text, output_path))
         return output_path
 
