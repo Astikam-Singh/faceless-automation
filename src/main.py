@@ -4,6 +4,7 @@ from src.script_generator import ScriptGenerator
 from src.tts import TextToSpeech
 from src.assets import AssetFetcher
 from src.renderer import VideoRenderer
+from src.thumbnail import ThumbnailGenerator
 from src.video_formatter import VideoFormatter
 from src.publishers.youtube import YouTubePublisher
 from src.publishers.instagram import InstagramPublisher
@@ -105,7 +106,7 @@ def main():
     # Publish to YouTube
     youtube_pub = YouTubePublisher()
     if os.path.exists(base_video):
-        yt_result = youtube_pub.upload_video(script_data, base_video)
+        yt_result = youtube_pub.upload_video(script_data, base_video, thumbnail_path=thumbnail_path)
         if yt_result:
             print(f"✅ YouTube upload successful: {yt_result.get('video_url', 'N/A')}")
     

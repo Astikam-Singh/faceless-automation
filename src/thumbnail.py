@@ -53,18 +53,38 @@ class ThumbnailGenerator:
             # Convert numpy array to PIL Image
             img = Image.fromarray(frame.astype('uint8'))
             
-            # Resize to thumbnail dimensions
-            img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+            # Resize and crop to fill thumbnail dimensions
+            target_ratio = self.width / self.height
+            img_ratio = img.width / img.height
             
-            # Create draw object
-            draw = ImageDraw.Draw(img)
+            if img_ratio > target_ratio:
+                # Clip is wider than target: resize height to match target
+                new_height = self.height
+                new_width = int(new_height * img_ratio)
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                left = (new_width - self.width) / 2
+                img = img.crop((left, 0, left + self.width, self.height))
+            else:
+                # Clip is taller than target: resize width to match target
+                new_width = self.width
+                new_height = int(new_width / img_ratio)
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                top = (new_height - self.height) / 2
+                img = img.crop((0, top, self.width, top + self.height))
             
             # Add dark gradient overlay at bottom for text readability
             for y in range(self.height - 200, self.height):
                 alpha = int(180 * (y - (self.height - 200)) / 200)
-                overlay = Image.new('RGB', (self.width, 1), self.colors['background'])
-                overlay.putalpha(alpha)
-                img.paste(Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB'), (0, y))
+                # Create a transparent overlay for this row
+                overlay_row = Image.new('RGBA', (self.width, 1), (0, 0, 0, alpha))
+                # Paste the overlay row onto the image
+                img = img.convert('RGBA')
+                img.paste(overlay_row, (0, y), overlay_row)
+            
+            img = img.convert('RGB')
+            
+            # Create draw object
+            draw = ImageDraw.Draw(img)
             
             # Add title text
             self._add_text(draw, title, y_offset=50)

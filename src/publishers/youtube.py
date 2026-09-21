@@ -129,9 +129,9 @@ Join {self.brand_name} for daily stoic wisdom and modern mindset strategies.
             'thumbnail': None  # Will be set if thumbnail is provided
         }
     
-    def upload_video(self, script_data, video_path, max_retries=3):
+    def upload_video(self, script_data, video_path, thumbnail_path=None, max_retries=3):
         """
-        Upload video to YouTube with retry logic.
+        Upload video to YouTube with retry logic and thumbnail support.
         Returns upload status and video URL if successful.
         """
         if not self.config['publishing']['youtube']['enabled']:
@@ -198,6 +198,10 @@ Join {self.brand_name} for daily stoic wisdom and modern mindset strategies.
             print(f"\n✅ YouTube upload successful!")
             print(f"   Video ID: {video_id}")
             print(f"   Video URL: {video_url}")
+
+            # Upload custom thumbnail if provided
+            if thumbnail_path and os.path.exists(thumbnail_path):
+                self.set_video_thumbnail(video_id, thumbnail_path)
             
             return {
                 'success': True,
@@ -214,14 +218,22 @@ Join {self.brand_name} for daily stoic wisdom and modern mindset strategies.
             }
     
     def set_video_thumbnail(self, video_id, thumbnail_path):
-        """Set custom thumbnail for uploaded video."""
-        if not os.path.exists(thumbnail_path):
+        """Set custom thumbnail for uploaded video via YouTube API."""
+        if not thumbnail_path or not os.path.exists(thumbnail_path):
             print(f"Thumbnail not found: {thumbnail_path}")
             return False
         
-        # TODO: Implement thumbnail upload via YouTube API
-        print(f"Thumbnail set for video {video_id}")
-        return True
+        try:
+            print(f"🖼 Uploading custom thumbnail: {thumbnail_path}")
+            self.youtube.thumbnails().set(
+                videoId=video_id,
+                media_body=MediaFileUpload(thumbnail_path, mimetype='image/jpeg')
+            ).execute()
+            print(f"✅ Thumbnail set for video {video_id}")
+            return True
+        except Exception as e:
+            print(f"⚠️ Could not set thumbnail: {e}")
+            return False
 
 if __name__ == "__main__":
     publisher = YouTubePublisher()
