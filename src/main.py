@@ -9,6 +9,7 @@ from src.thumbnail import ThumbnailGenerator
 from src.video_formatter import VideoFormatter
 from src.publishers.youtube import YouTubePublisher
 from src.publishers.instagram import InstagramPublisher
+import time
 
 def cleanup_old_files(config_path="config.yaml"):
     """Auto-cleanup old output files to prevent disk space issues."""
@@ -90,6 +91,11 @@ def main():
     print("\n[Generating thumbnail...]")
     thumbnail_gen = ThumbnailGenerator()
     thumbnail_path = thumbnail_gen.generate_from_video(longform_video, script_data.get('title', 'Stoic Wisdom'), output_path=f"{filename_base}_thumbnail.jpg")
+    
+    # Pause for user review
+    print(f"\n📢 ACTION REQUIRED: Please check the thumbnail at: {thumbnail_path}")
+    print("If it looks good, the upload to YouTube will start in 15 seconds...")
+    time.sleep(15)
     
     # 6. Auto-Publish to Social Media
     print("\n[6/6] Auto-publishing to social platforms...")

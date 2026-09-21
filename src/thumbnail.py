@@ -55,10 +55,13 @@ class ThumbnailGenerator:
             img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
             
             # Apply dark tint for text contrast
-            tint = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 100))
+            tint = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 150))
             img = Image.alpha_composite(img.convert('RGBA'), tint).convert('RGB')
             
             draw = ImageDraw.Draw(img)
+            
+            # Draw a thick border for "pop"
+            draw.rectangle([20, 20, self.width-20, self.height-20], outline=self.colors['accent'], width=15)
             
             # Add catchy text with high-contrast styling
             self._add_trendy_text(draw, title)
@@ -90,27 +93,28 @@ class ThumbnailGenerator:
         return img
     
     def _add_trendy_text(self, draw, text):
-        """Add high-contrast, trendy text."""
-        # Try to find a bold, impactful font
+        """Add high-contrast, trendy text with dynamic wrapping."""
+        # Use existing robust _add_text logic
+        # We need a bigger font for the main title
         try:
-            font = ImageFont.truetype("arialbd.ttf", 90) # Bold
+            font = ImageFont.truetype("arialbd.ttf", 80)
         except:
             font = ImageFont.load_default()
         
-        # Split text into two lines if long to make it pop
-        words = text.split()
-        mid = len(words) // 2
-        line1 = " ".join(words[:mid])
-        line2 = " ".join(words[mid:])
+        # Word wrap using the class's utility function _wrap_text
+        wrapped_lines = self._wrap_text(draw, text.upper(), font, self.width - 200)
         
-        # Add outline for text pop (High-CTR style)
-        for offset in [-3, 3]:
-            draw.text((100+offset, 200), line1.upper(), font=font, fill='black')
-            draw.text((100+offset, 300), line2.upper(), font=font, fill='black')
-            
-        # Draw main text in Gold
-        draw.text((100, 200), line1.upper(), font=font, fill=self.colors['accent'])
-        draw.text((100, 300), line2.upper(), font=font, fill=self.colors['text'])
+        # Draw text centered vertically with outline
+        y_offset = (self.height - (len(wrapped_lines) * 90)) // 2
+        
+        for line in wrapped_lines:
+            # Outline
+            for offset in [-3, 3]:
+                draw.text((100+offset, y_offset+offset), line, font=font, fill='black')
+                
+            # Main Text
+            draw.text((100, y_offset), line, font=font, fill=self.colors['accent'])
+            y_offset += 90
             
     def generate_static(self, title, subtitle=None, output_path=None):
         """
