@@ -12,7 +12,7 @@ class VideoRenderer:
         self.width, self.height = self.config['niche'][res_key]
         self.is_longform = is_longform
 
-    def render(self, audio_path: str, script_segments: list, output_path: str = "output/final_video.mp4"):
+    def render(self, audio_path: str, processed_clips_paths: list, output_path: str = "output/final_video.mp4"):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
         audio_clip = AudioFileClip(audio_path)
@@ -20,47 +20,21 @@ class VideoRenderer:
         brand_name = self.config['niche'].get('brand_name', 'Ancient Mindset Lab')
 
         clips = []
-        seg_duration = duration / max(1, len(script_segments))
+        seg_duration = duration / max(1, len(processed_clips_paths))
         
-        for i, _ in enumerate(script_segments):
-            clip_path = f"output/clip_{i}.mp4"
-            if os.path.exists(clip_path):
-                try:
-                    c = VideoFileClip(clip_path)
-                    print(f"Loaded clip {clip_path}: {c.w}x{c.h}, duration={c.duration:.2f}s")
+        for clip_path in processed_clips_paths:
+            try:
+                c = VideoFileClip(clip_path)
+                
+                # Ensure clip duration matches segment duration
+                if c.duration < seg_duration:
+                    c = c.fx(vfx.loop, duration=seg_duration)
+                else:
+                    c = c.subclip(0, seg_duration)
                     
-                    if c.w == 0 or c.h == 0:
-                        raise ValueError(f"Clip {clip_path} has zero dimensions.")
-                    
-                    # Ensure clip is long enough
-                    if c.duration < seg_duration:
-                        c = c.fx(vfx.loop, duration=seg_duration)
-                    else:
-                        c = c.subclip(0, seg_duration)
-                    
-                    # Set fps
-                    c = c.set_fps(self.config['niche']['fps'])
-                    
-                    # Fix visuals: Resize to fill frame (16:9 landscape)
-                    target_ratio = self.width / self.height
-                    clip_ratio = c.w / c.h
-                    
-                    if clip_ratio > target_ratio:
-                        c = c.resize(height=self.height)
-                        x_center = c.w / 2
-                        c = c.crop(x1=x_center - self.width/2, y1=0, x2=x_center + self.width/2, y2=self.height)
-                    else:
-                        c = c.resize(width=self.width)
-                        y_center = c.h / 2
-                        c = c.crop(x1=0, y1=y_center - self.height/2, x2=self.width, y2=y_center + self.height/2)
-                    
-                    # Resize to exact target dimensions
-                    c = c.resize(newsize=(self.width, self.height))
-                    clips.append(c)
-                except Exception as e:
-                    print(f"Failed to load clip {clip_path}: {e}")
-                    clips.append(ColorClip(size=(self.width, self.height), color=(20, 20, 20), duration=seg_duration))
-            else:
+                clips.append(c)
+            except Exception as e:
+                print(f"Failed to load processed clip {clip_path}: {e}")
                 clips.append(ColorClip(size=(self.width, self.height), color=(20, 20, 20), duration=seg_duration))
 
         final_visuals = concatenate_videoclips(clips, method="compose") if clips else ColorClip(size=(self.width, self.height), color=(20, 20, 20), duration=duration)
@@ -76,7 +50,6 @@ class VideoRenderer:
             overlay_elements.append(watermark)
         else:
             # Fallback text watermark if no logo
-            from moviepy.config import change_settings
             try:
                 txt_watermark = TextClip(brand_name, fontsize=30, color='white', font='Arial-Bold').set_duration(duration).set_opacity(0.3).set_position(("right", "top"))
                 overlay_elements.append(txt_watermark)

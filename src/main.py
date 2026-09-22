@@ -7,6 +7,7 @@ from src.assets import AssetFetcher
 from src.renderer import VideoRenderer
 from src.thumbnail import ThumbnailGenerator
 from src.video_formatter import VideoFormatter
+from src.clip_processor import ClipProcessor
 from src.publishers.youtube import YouTubePublisher
 from src.publishers.instagram import InstagramPublisher
 from src.qa_engine import QAEngine
@@ -78,22 +79,31 @@ def main():
         print(f"Audio ready at {audio_path}")
         
         # 3. Fetch Visual Assets
-        print("\n[3/6] Fetching B-roll assets...")
+        print("\n[3/7] Fetching B-roll assets...")
         fetcher = AssetFetcher()
+        segments = script_data.get('segments', [])
+        raw_clips = []
         for i, seg in enumerate(segments):
             prompt = seg.get('visual_prompt', 'cinematic dark aesthetic')
-            fetcher.fetch_video(prompt, f"output/clip_{i}.mp4")
-            
-        # 4. Render Video Formats
-        print("\n[4/6] Rendering formats (Long-form & Short-form)...")
+            clip_path = fetcher.fetch_video(prompt, f"output/clip_{i}.mp4")
+            if clip_path: raw_clips.append(clip_path)
+
+        # 4. Pre-Process Clips (Once)
+        print("\n[4/7] Pre-processing clips...")
+        processor = ClipProcessor()
+        long_clips = [processor.process_clip(c, i, is_longform=True) for i, c in enumerate(raw_clips)]
+        short_clips = [processor.process_clip(c, i, is_longform=False) for i, c in enumerate(raw_clips)]
+        
+        # 5. Render Video Formats
+        print("\n[5/7] Rendering formats (Long-form & Short-form)...")
         renderer_long = VideoRenderer(is_longform=True)
-        longform_video = renderer_long.render(audio_path, segments, output_path=f"{filename_base}_longform.mp4")
+        longform_video = renderer_long.render(audio_path, long_clips, output_path=f"{filename_base}_longform.mp4")
         
         renderer_short = VideoRenderer(is_longform=False)
-        shortform_video = renderer_short.render(audio_path, segments, output_path=f"{filename_base}_shortform.mp4")
+        shortform_video = renderer_short.render(audio_path, short_clips, output_path=f"{filename_base}_shortform.mp4")
         
-        # 5. Quality Assurance
-        print("\n[5/6] Running automated Quality Assurance check...")
+        # 6. Quality Assurance
+        print("\n[6/6] Running automated Quality Assurance check...")
         qa = QAEngine()
         success_rate = qa.run_qa(longform_video, audio_path, full_text)
         
@@ -105,8 +115,8 @@ def main():
             thumbnail_gen = ThumbnailGenerator()
             thumbnail_path = thumbnail_gen.generate_from_video(longform_video, script_data.get('title', 'Stoic Wisdom'), output_path=f"{filename_base}_thumbnail.jpg")
             
-            # 6. Auto-Publish to Social Media
-            print("\n[6/6] Auto-publishing to social platforms...")
+            # 7. Auto-Publish to Social Media
+            print("\n[7/7] Auto-publishing to social platforms...")
             
             # Publish to YouTube (Longform)
             youtube_pub = YouTubePublisher()
@@ -139,3 +149,6 @@ def main():
     print(f"\n✨ Pipeline complete! Videos ready at output/")
     print(f"   - Long-form: {longform_video}")
     print(f"   - Short-form: {shortform_video}")
+
+if __name__ == "__main__":
+    main()
