@@ -53,80 +53,82 @@ def main():
     # 0. Generate Unique Run ID
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # 1. Generate Script (Long-form request)
-    print("\n[1/6] Generating viral script via Gemini...")
-    script_gen = ScriptGenerator()
-    script_data = script_gen.generate_script(is_longform=True)
-    
-    # Generate a safer, shorter filename
-    title_snippet = script_data.get('title', 'Stoic_Wisdom')
-    safe_title = "".join([c for c in title_snippet if c.isalnum() or c in (' ', '_')]).strip()[:30].replace(" ", "_")
-    filename_base = f"output/{run_id}_{safe_title}"
-    print(f"Title: {script_data.get('title')}")
-    
-    full_text = " ".join([seg['text'] for seg in script_data.get('segments', [])])
-    
-    # 2. Generate Voiceover
-    print("\n[2/6] Generating neural voiceover via Edge-TTS...")
-    tts = TextToSpeech()
-    # Pass segments to tts to incorporate SSML breaks
-    audio_path = tts.generate_voiceover(script_data['segments'])
-    print(f"Audio ready at {audio_path}")
-    
-    # 3. Fetch Visual Assets
-    print("\n[3/6] Fetching B-roll assets...")
-    fetcher = AssetFetcher()
-    segments = script_data.get('segments', [])
-    for i, seg in enumerate(segments):
-        prompt = seg.get('visual_prompt', 'cinematic dark aesthetic')
-        fetcher.fetch_video(prompt, f"output/clip_{i}.mp4")
+    # QA & Iteration Loop
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        print(f"\n--- Pipeline Attempt {attempt + 1}/{max_attempts} ---")
         
-    # 4. Render Video Formats
-    print("\n[4/6] Rendering formats (Long-form & Short-form)...")
-    renderer_long = VideoRenderer(is_longform=True)
-    longform_video = renderer_long.render(audio_path, segments, output_path=f"{filename_base}_longform.mp4")
-    
-    renderer_short = VideoRenderer(is_longform=False)
-    shortform_video = renderer_short.render(audio_path, segments, output_path=f"{filename_base}_shortform.mp4")
-    
-    # 5. Create Multi-Format Videos
-    print("\n[5/6] Creating multi-format videos...")
-    formatter_long = VideoFormatter(is_longform=True)
-    longform_video = formatter_long.create_longform_video(base_video_path, output_path=f"{filename_base}_longform.mp4")
-    
-    formatter_short = VideoFormatter(is_longform=False)
-    shortform_video = formatter_short.create_shortform_video(base_video_path, max_duration=60, output_path=f"{filename_base}_shortform.mp4")
-    
-    # 5.5 Quality Assurance
-    print("\n[5.5/6] Running automated Quality Assurance check...")
-    qa = QAEngine()
-    success_rate = qa.run_qa(longform_video, audio_path, full_text)
-    
-    # 6. Auto-Publish to Social Media
-    if success_rate >= 0.85:
-        print("\n[6/6] Auto-publishing to social platforms...")
+        # 1. Generate Script (Long-form request)
+        print("\n[1/6] Generating viral long-form script via Gemini...")
+        script_gen = ScriptGenerator()
+        script_data = script_gen.generate_script(is_longform=True)
+        title = script_data.get('title', 'Stoic_Wisdom').replace(" ", "_").replace("|", "_")[:50]
+        filename_base = f"output/{run_id}_{attempt}_{title}"
+        print(f"Title: {script_data.get('title')}")
         
-        # Publish to YouTube (Longform)
-        youtube_pub = YouTubePublisher()
-        # Generate thumbnail for longform
-        print("\n[Generating thumbnail...]")
-        thumbnail_gen = ThumbnailGenerator()
-        thumbnail_path = thumbnail_gen.generate_from_video(longform_video, script_data.get('title', 'Stoic Wisdom'), output_path=f"{filename_base}_thumbnail.jpg")
+        full_text = " ".join([seg['text'] for seg in script_data.get('segments', [])])
         
-        yt_result = youtube_pub.upload_video(script_data, longform_video, thumbnail_path=thumbnail_path)
-        if yt_result:
-            print(f"✅ YouTube upload successful: {yt_result.get('video_url', 'N/A')}")
+        # 2. Generate Voiceover
+        print("\n[2/6] Generating neural voiceover via Edge-TTS...")
+        tts = TextToSpeech()
+        audio_path = tts.generate_voiceover(script_data['segments'])
+        print(f"Audio ready at {audio_path}")
         
-        # Publish to Instagram (Shortform)
-        ig_pub = InstagramPublisher()
-        if ig_pub.is_ready():
-            ig_result = ig_pub.upload_reel(script_data, shortform_video)
-            if ig_result:
-                print(f"✅ Instagram Reels upload successful: {ig_result.get('upload_url', 'N/A')}")
+        # 3. Fetch Visual Assets
+        print("\n[3/6] Fetching B-roll assets...")
+        fetcher = AssetFetcher()
+        segments = script_data.get('segments', [])
+        for i, seg in enumerate(segments):
+            prompt = seg.get('visual_prompt', 'cinematic dark aesthetic')
+            fetcher.fetch_video(prompt, f"output/clip_{i}.mp4")
+            
+        # 4. Render Video Formats
+        print("\n[4/6] Rendering formats (Long-form & Short-form)...")
+        renderer_long = VideoRenderer(is_longform=True)
+        longform_video = renderer_long.render(audio_path, segments, output_path=f"{filename_base}_longform.mp4")
+        
+        renderer_short = VideoRenderer(is_longform=False)
+        shortform_video = renderer_short.render(audio_path, segments, output_path=f"{filename_base}_shortform.mp4")
+        
+        # 5. Quality Assurance
+        print("\n[5/6] Running automated Quality Assurance check...")
+        qa = QAEngine()
+        success_rate = qa.run_qa(longform_video, audio_path, full_text)
+        
+        if success_rate >= 0.85:
+            print(f"✅ QA passed on attempt {attempt + 1}!")
+            
+            # Generate thumbnail
+            print("\n[Generating thumbnail...]")
+            thumbnail_gen = ThumbnailGenerator()
+            thumbnail_path = thumbnail_gen.generate_from_video(longform_video, script_data.get('title', 'Stoic Wisdom'), output_path=f"{filename_base}_thumbnail.jpg")
+            
+            # 6. Auto-Publish to Social Media
+            print("\n[6/6] Auto-publishing to social platforms...")
+            
+            # Publish to YouTube (Longform)
+            youtube_pub = YouTubePublisher()
+            if os.path.exists(longform_video):
+                yt_result = youtube_pub.upload_video(script_data, longform_video, thumbnail_path=thumbnail_path)
+                if yt_result:
+                    print(f"✅ YouTube upload successful: {yt_result.get('video_url', 'N/A')}")
+            
+            # Publish to Instagram (Shortform)
+            ig_pub = InstagramPublisher()
+            if ig_pub.is_ready():
+                ig_result = ig_pub.upload_reel(script_data, shortform_video)
+                if ig_result:
+                    print(f"✅ Instagram Reels upload successful: {ig_result.get('upload_url', 'N/A')}")
+            else:
+                print("⚠ Instagram publishing skipped: token/account_id not configured")
+            
+            # Break loop on success
+            break
         else:
-            print("⚠ Instagram publishing skipped: token/account_id not configured")
+            print(f"⚠️ Attempt {attempt + 1} failed QA ({success_rate*100:.1f}%). Retrying...")
     else:
-        print(f"\n❌ Publishing skipped: Quality Assurance success rate {success_rate*100:.1f}% is below threshold (85%).")
+        print(f"\n❌ Pipeline failed after {max_attempts} attempts.")
+        return
     
     # Cleanup old files
     print("\n[7/7] Checking disk cleanup...")
@@ -135,6 +137,3 @@ def main():
     print(f"\n✨ Pipeline complete! Videos ready at output/")
     print(f"   - Long-form: {longform_video}")
     print(f"   - Short-form: {shortform_video}")
-
-if __name__ == "__main__":
-    main()
