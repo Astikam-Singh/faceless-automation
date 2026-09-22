@@ -9,6 +9,7 @@ from src.thumbnail import ThumbnailGenerator
 from src.video_formatter import VideoFormatter
 from src.publishers.youtube import YouTubePublisher
 from src.publishers.instagram import InstagramPublisher
+from src.qa_engine import QAEngine
 import time
 
 def cleanup_old_files(config_path="config.yaml"):
@@ -90,43 +91,42 @@ def main():
     
     # 5. Create Multi-Format Videos
     print("\n[5/6] Creating multi-format videos...")
-    
-    # Create long-form
     formatter_long = VideoFormatter(is_longform=True)
     longform_video = formatter_long.create_longform_video(base_video_path, output_path=f"{filename_base}_longform.mp4")
     
-    # Create short-form
     formatter_short = VideoFormatter(is_longform=False)
     shortform_video = formatter_short.create_shortform_video(base_video_path, max_duration=60, output_path=f"{filename_base}_shortform.mp4")
     
-    # Generate thumbnail
-    print("\n[Generating thumbnail...]")
-    thumbnail_gen = ThumbnailGenerator()
-    thumbnail_path = thumbnail_gen.generate_from_video(longform_video, script_data.get('title', 'Stoic Wisdom'), output_path=f"{filename_base}_thumbnail.jpg")
-    
-    # Pause for user review
-    print(f"\n📢 ACTION REQUIRED: Please check the thumbnail at: {thumbnail_path}")
-    print("If it looks good, the upload to YouTube will start in 15 seconds...")
-    time.sleep(15)
+    # 5.5 Quality Assurance
+    print("\n[5.5/6] Running automated Quality Assurance check...")
+    qa = QAEngine()
+    success_rate = qa.run_qa(longform_video, audio_path, full_text)
     
     # 6. Auto-Publish to Social Media
-    print("\n[6/6] Auto-publishing to social platforms...")
-    
-    # Publish to YouTube (Longform)
-    youtube_pub = YouTubePublisher()
-    if os.path.exists(longform_video):
+    if success_rate >= 0.85:
+        print("\n[6/6] Auto-publishing to social platforms...")
+        
+        # Publish to YouTube (Longform)
+        youtube_pub = YouTubePublisher()
+        # Generate thumbnail for longform
+        print("\n[Generating thumbnail...]")
+        thumbnail_gen = ThumbnailGenerator()
+        thumbnail_path = thumbnail_gen.generate_from_video(longform_video, script_data.get('title', 'Stoic Wisdom'), output_path=f"{filename_base}_thumbnail.jpg")
+        
         yt_result = youtube_pub.upload_video(script_data, longform_video, thumbnail_path=thumbnail_path)
         if yt_result:
             print(f"✅ YouTube upload successful: {yt_result.get('video_url', 'N/A')}")
-    
-    # Publish to Instagram (Shortform)
-    ig_pub = InstagramPublisher()
-    if ig_pub.is_ready():
-        ig_result = ig_pub.upload_reel(script_data, shortform_video)
-        if ig_result:
-            print(f"✅ Instagram Reels upload successful: {ig_result.get('upload_url', 'N/A')}")
+        
+        # Publish to Instagram (Shortform)
+        ig_pub = InstagramPublisher()
+        if ig_pub.is_ready():
+            ig_result = ig_pub.upload_reel(script_data, shortform_video)
+            if ig_result:
+                print(f"✅ Instagram Reels upload successful: {ig_result.get('upload_url', 'N/A')}")
+        else:
+            print("⚠ Instagram publishing skipped: token/account_id not configured")
     else:
-        print("⚠ Instagram publishing skipped: token/account_id not configured")
+        print(f"\n❌ Publishing skipped: Quality Assurance success rate {success_rate*100:.1f}% is below threshold (85%).")
     
     # Cleanup old files
     print("\n[7/7] Checking disk cleanup...")

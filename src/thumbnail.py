@@ -66,6 +66,9 @@ class ThumbnailGenerator:
             # Add catchy text with high-contrast styling
             self._add_trendy_text(draw, title)
             
+            # Add CTA Arrow
+            self._add_cta_arrow(draw)
+            
             # Add logo if available
             if self.logo_path and os.path.exists(self.logo_path):
                 self._add_logo(img)
@@ -94,28 +97,42 @@ class ThumbnailGenerator:
     
     def _add_trendy_text(self, draw, text):
         """Add high-contrast, trendy text with dynamic wrapping."""
-        # Use existing robust _add_text logic
-        # We need a bigger font for the main title
         try:
-            font = ImageFont.truetype("arialbd.ttf", 80)
+            # Use a slightly smaller font size for long titles so they fit better
+            font = ImageFont.truetype("arialbd.ttf", 70)
         except:
             font = ImageFont.load_default()
         
-        # Word wrap using the class's utility function _wrap_text
-        wrapped_lines = self._wrap_text(draw, text.upper(), font, self.width - 200)
+        # Word wrap using the utility function
+        # Max width is width minus margins
+        max_text_width = self.width - 200
+        wrapped_lines = self._wrap_text(draw, text.upper(), font, max_text_width)
         
-        # Draw text centered vertically with outline
-        y_offset = (self.height - (len(wrapped_lines) * 90)) // 2
+        # Calculate start position to center text vertically
+        line_height = 80
+        total_height = len(wrapped_lines) * line_height
+        y_offset = (self.height - total_height) // 2
         
         for line in wrapped_lines:
+            # Calculate width to center horizontally
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            x_offset = (self.width - text_width) // 2
+            
             # Outline
-            for offset in [-3, 3]:
-                draw.text((100+offset, y_offset+offset), line, font=font, fill='black')
+            for offset in [-4, 4]:
+                draw.text((x_offset+offset, y_offset+offset), line, font=font, fill='black')
                 
             # Main Text
-            draw.text((100, y_offset), line, font=font, fill=self.colors['accent'])
-            y_offset += 90
+            draw.text((x_offset, y_offset), line, font=font, fill=self.colors['accent'])
+            y_offset += line_height
             
+    def _add_cta_arrow(self, draw):
+        """Add a simple trendy arrow visual cue."""
+        x, y = self.width - 250, self.height - 250
+        # Draw arrow shape
+        draw.polygon([(x, y), (x+100, y+100), (x, y+200), (x+50, y+100)], fill=self.colors['highlight'])
+        
     def generate_static(self, title, subtitle=None, output_path=None):
         """
         Generate static thumbnail without video frame.
@@ -195,7 +212,7 @@ class ThumbnailGenerator:
             return img
     
     def _wrap_text(self, draw, text, font, max_width):
-        """Wrap text to fit within max_width."""
+        """Wrap text into multiple lines."""
         words = text.split()
         lines = []
         current_line = []
@@ -209,10 +226,8 @@ class ThumbnailGenerator:
                 if current_line:
                     lines.append(' '.join(current_line))
                 current_line = [word]
-        
         if current_line:
             lines.append(' '.join(current_line))
-        
         return lines
     
     def _find_font(self, bold=False):

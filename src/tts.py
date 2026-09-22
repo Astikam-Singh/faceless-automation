@@ -10,15 +10,11 @@ class TextToSpeech:
         self.voice = self.config.get("tts", {}).get("voice", "en-US-ChristopherNeural")
 
     async def _generate(self, segments: list, output_path: str):
-        # Build SSML with breaks for better prosody
-        ssml = f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"'
-        for seg in segments:
-            # Add dynamic breaks for better prosody
-            text = seg['text'].replace('&', 'and')
-            ssml += f'<prosody pitch="+5%" rate="slow">{text}</prosody><break time="500ms"/>'
-        ssml += '</speak>'
+        # Build text without problematic SSML tags that might be read aloud
+        text = " ".join([seg['text'].replace('&', 'and') for seg in segments])
         
-        communicate = edge_tts.Communicate(ssml, self.voice)
+        # Use plain text for more reliable synthesis if tags fail
+        communicate = edge_tts.Communicate(text, self.voice)
         await communicate.save(output_path)
 
     def generate_voiceover(self, segments: list, output_path: str = "output/voiceover.mp3"):
