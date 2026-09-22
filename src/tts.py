@@ -9,19 +9,24 @@ class TextToSpeech:
             self.config = yaml.load(f, Loader=yaml.SafeLoader)
         self.voice = self.config.get("tts", {}).get("voice", "en-US-ChristopherNeural")
 
-    async def _generate(self, text: str, output_path: str):
-        communicate = edge_tts.Communicate(text, self.voice)
+    async def _generate(self, segments: list, output_path: str):
+        # Build SSML with breaks for better prosody
+        ssml = f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"'
+        for seg in segments:
+            # Add dynamic breaks for better prosody
+            text = seg['text'].replace('&', 'and')
+            ssml += f'<prosody pitch="+5%" rate="slow">{text}</prosody><break time="500ms"/>'
+        ssml += '</speak>'
+        
+        communicate = edge_tts.Communicate(ssml, self.voice)
         await communicate.save(output_path)
 
-    def generate_voiceover(self, text: str, output_path: str = "output/voiceover.mp3"):
+    def generate_voiceover(self, segments: list, output_path: str = "output/voiceover.mp3"):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        # Using a slightly more expressive voice style to reduce "static" feel
-        # Edge-tts supports Prosody, we can use <prosody> tags for better human-like intensity
-        text = f'<prosody pitch="+5%" rate="slow">{text}</prosody>'
-        asyncio.run(self._generate(text, output_path))
+        asyncio.run(self._generate(segments, output_path))
         return output_path
 
 if __name__ == "__main__":
     tts = TextToSpeech()
-    path = tts.generate_voiceover("Control your mind, for outside forces have no power over your inner citadel.")
+    path = tts.generate_voiceover(["Control your mind, for outside forces have no power over your inner citadel."])
     print(f"Voiceover saved to {path}")

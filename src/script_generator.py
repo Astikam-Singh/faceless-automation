@@ -27,9 +27,10 @@ class ScriptGenerator:
             "Requirements:\n"
             "1. Hook the viewer in the first 3-5 seconds with a powerful, counter-intuitive statement.\n"
             "2. Keep pacing tight and punchy.\n"
-            "3. Include bracketed visual keywords [e.g., [cinematic dark aesthetic, rain on window]] before each sentence.\n"
+            "3. Include bracketed visual keywords [e.g., [cinematic dark aesthetic, rain on window]] at the start of each segment.\n"
             f"4. End with a subtle call to action: 'Join the {brand} for more ancient wisdom.'\n"
-            "5. Return valid JSON with keys: 'title', 'description', 'hashtags', and 'segments' (list of {'text', 'visual_prompt'})."
+            "5. If generating a long-form script, ensure it is detailed enough to last the requested duration (approximately 150 words per minute)."
+            "6. Return valid JSON with keys: 'title', 'description', 'hashtags', and 'segments' (list of {'text', 'visual_prompt'})."
         )
 
         response = self.client.models.generate_content(

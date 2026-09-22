@@ -68,7 +68,8 @@ def main():
     # 2. Generate Voiceover
     print("\n[2/6] Generating neural voiceover via Edge-TTS...")
     tts = TextToSpeech()
-    audio_path = tts.generate_voiceover(full_text)
+    # Pass segments to tts to incorporate SSML breaks
+    audio_path = tts.generate_voiceover(script_data['segments'])
     print(f"Audio ready at {audio_path}")
     
     # 3. Fetch Visual Assets
@@ -86,6 +87,17 @@ def main():
     
     renderer_short = VideoRenderer(is_longform=False)
     shortform_video = renderer_short.render(audio_path, segments, output_path=f"{filename_base}_shortform.mp4")
+    
+    # 5. Create Multi-Format Videos
+    print("\n[5/6] Creating multi-format videos...")
+    
+    # Create long-form
+    formatter_long = VideoFormatter(is_longform=True)
+    longform_video = formatter_long.create_longform_video(base_video_path, output_path=f"{filename_base}_longform.mp4")
+    
+    # Create short-form
+    formatter_short = VideoFormatter(is_longform=False)
+    shortform_video = formatter_short.create_shortform_video(base_video_path, max_duration=60, output_path=f"{filename_base}_shortform.mp4")
     
     # Generate thumbnail
     print("\n[Generating thumbnail...]")
