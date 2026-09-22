@@ -66,7 +66,10 @@ def main():
         filename_base = f"output/{run_id}_{attempt}_{title}"
         print(f"Title: {script_data.get('title')}")
         
-        full_text = " ".join([seg['text'] for seg in script_data.get('segments', [])])
+        segments = script_data.get('segments', [])
+        print(f"DEBUG: Generated {len(segments)} segments.")
+        
+        full_text = " ".join([seg['text'] for seg in segments])
         
         # 2. Generate Voiceover
         print("\n[2/6] Generating neural voiceover via Edge-TTS...")
@@ -77,7 +80,6 @@ def main():
         # 3. Fetch Visual Assets
         print("\n[3/6] Fetching B-roll assets...")
         fetcher = AssetFetcher()
-        segments = script_data.get('segments', [])
         for i, seg in enumerate(segments):
             prompt = seg.get('visual_prompt', 'cinematic dark aesthetic')
             fetcher.fetch_video(prompt, f"output/clip_{i}.mp4")

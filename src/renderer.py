@@ -99,6 +99,7 @@ class VideoRenderer:
             fps=self.config['niche']['fps'],
             codec='libx264',
             audio_codec='aac',
+            bitrate='10000k',  # Increased for YouTube 1080p quality
             temp_audiofile=temp_audio,
             remove_temp=True
         )
