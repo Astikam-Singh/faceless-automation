@@ -9,11 +9,18 @@ class VideoFormatter:
     - Short-form (45-60 seconds) for Instagram Reels & YouTube Shorts
     """
     
-    def __init__(self, config_path=None, is_longform=False):
-        if config_path is None:
-            config_path = os.path.join(os.getcwd(), 'config.yaml')
-        with open(config_path, "r", encoding="utf-8") as f:
-            self.config = yaml.load(f, Loader=yaml.SafeLoader)
+from src.config_loader import load_config
+from moviepy.editor import VideoFileClip, concatenate_videoclips, ColorClip
+
+class VideoFormatter:
+    """
+    Handles multi-format video generation:
+    - Long-form (10-12 minutes) for YouTube
+    - Short-form (45-60 seconds) for Instagram Reels & YouTube Shorts
+    """
+    
+    def __init__(self, is_longform=False):
+        self.config = load_config()
         
         # Select resolution based on format
         res_key = 'resolution_longform' if is_longform else 'resolution_shortform'

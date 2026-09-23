@@ -1,5 +1,4 @@
-﻿import os
-import yaml
+﻿from src.config_loader import load_config
 import subprocess
 import sys
 
@@ -7,13 +6,10 @@ class TextToSpeech:
     """
     Handles voiceover generation using LOCAL Piper TTS model for offline reliability.
     """
-    def __init__(self, config_path=None):
-        if config_path is None:
-            config_path = os.path.join(os.getcwd(), 'config.yaml')
-        with open(config_path, "r", encoding='utf-8') as f:
-            self.config = yaml.load(f, Loader=yaml.SafeLoader)
+    def __init__(self):
+        self.config = load_config()
         
-        # Path to the model file you need to download
+        # Path to the model file
         self.model_path = "assets/en_US-lessac-medium.onnx"
 
     def generate_voiceover(self, segments: list, output_path: str = "output/voiceover.mp3"):

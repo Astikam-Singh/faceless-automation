@@ -4,13 +4,11 @@ from google import genai
 from google.genai import types
 
 class ScriptGenerator:
-    def __init__(self, config_path=None):
-        if config_path is None:
-            # Use current working directory as a reliable fallback
-            config_path = os.path.join(os.getcwd(), 'config.yaml')
-            
-        with open(config_path, "r", encoding="utf-8") as f:
-            self.config = yaml.load(f, Loader=yaml.SafeLoader)
+from src.config_loader import load_config
+
+class ScriptGenerator:
+    def __init__(self):
+        self.config = load_config()
         
         # Load API key from env or config
         api_key = os.getenv("GOOGLE_GEMINI_API_KEY", self.config.get("google_gemini_api_key", ""))

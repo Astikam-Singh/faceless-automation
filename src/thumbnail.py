@@ -11,11 +11,16 @@ class ThumbnailGenerator:
     Generates custom thumbnails for YouTube videos with brand styling.
     """
     
-    def __init__(self, config_path=None):
-        if config_path is None:
-            config_path = os.path.join(os.getcwd(), 'config.yaml')
-        with open(config_path, "r", encoding="utf-8") as f:
-            self.config = yaml.load(f, Loader=yaml.SafeLoader)
+from src.config_loader import load_config
+from PIL import Image, ImageDraw, ImageFont
+
+class ThumbnailGenerator:
+    """
+    Generates custom thumbnails for YouTube videos with brand styling.
+    """
+    
+    def __init__(self):
+        self.config = load_config()
         
         self.width = self.config['niche'].get('thumbnail_width', 1280)
         self.height = self.config['niche'].get('thumbnail_height', 720)
