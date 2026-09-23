@@ -6,12 +6,12 @@ from src.tts import TextToSpeech
 from src.assets import AssetFetcher
 from src.renderer import VideoRenderer
 from src.thumbnail import ThumbnailGenerator
-from src.video_formatter import VideoFormatter
 from src.clip_processor import ClipProcessor
 from src.publishers.youtube import YouTubePublisher
 from src.publishers.instagram import InstagramPublisher
 from src.qa_engine import QAEngine
 import time
+from multiprocessing.pool import ThreadPool
 
 def cleanup_old_files(config_path="config.yaml"):
     """Auto-cleanup old output files to prevent disk space issues."""
@@ -49,102 +49,64 @@ def cleanup_old_files(config_path="config.yaml"):
         print(f"  ✅ Cleanup complete: Removed {deleted_count} files ({deleted_size/1024/1024:.2f} MB)")
 
 def main():
-    print("=== Starting Ancient Mindset Lab Video Pipeline ===")
-    
-    # 0. Generate Unique Run ID
+    print("=== Starting Ancient Mindset Lab Production Pipeline ===")
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # QA & Iteration Loop
     max_attempts = 3
     for attempt in range(max_attempts):
         print(f"\n--- Pipeline Attempt {attempt + 1}/{max_attempts} ---")
         
-        # 1. Generate Script (Long-form request)
-        print("\n[1/6] Generating viral long-form script via Gemini...")
+        # 1. Generate Scripts
+        print("\n[1/7] Generating unique viral scripts...")
         script_gen = ScriptGenerator()
-        script_data = script_gen.generate_script(is_longform=True)
-        title = script_data.get('title', 'Stoic_Wisdom').replace(" ", "_").replace("|", "_")[:50]
-        filename_base = f"output/{run_id}_{attempt}_{title}"
-        print(f"Title: {script_data.get('title')}")
+        long_script = script_gen.generate_script(is_longform=True)
+        short_script = script_gen.generate_script(is_longform=False)
+        filename_base = f"output/{run_id}_{attempt}"
         
-        segments = script_data.get('segments', [])
-        print(f"DEBUG: Generated {len(segments)} segments.")
-        
-        full_text = " ".join([seg['text'] for seg in segments])
-        
-        # 2. Generate Voiceover
-        print("\n[2/7] Generating neural voiceover via Hugging Face...")
+        # 2. Generate Voiceovers
+        print("\n[2/7] Generating voiceovers...")
         tts = TextToSpeech()
-        audio_path = tts.generate_voiceover(script_data['segments'])
-        print(f"Audio ready at {audio_path}")
+        audio_long = tts.generate_voiceover(long_script['segments'], output_path=f"{filename_base}_long_audio.mp3")
+        audio_short = tts.generate_voiceover(short_script['segments'], output_path=f"{filename_base}_short_audio.mp3")
         
         # 3. Fetch Visual Assets
-        print("\n[3/7] Fetching B-roll assets...")
+        print("\n[3/7] Fetching unique assets...")
         fetcher = AssetFetcher()
-        segments = script_data.get('segments', [])
-        raw_clips = []
-        for i, seg in enumerate(segments):
-            prompt = seg.get('visual_prompt', 'cinematic dark aesthetic')
-            clip_path = fetcher.fetch_video(prompt, f"output/clip_{i}.mp4")
-            if clip_path: raw_clips.append(clip_path)
-
-        # 4. Pre-Process Clips (Once)
-        print("\n[4/7] Pre-processing clips...")
-        processor = ClipProcessor()
-        long_clips = [processor.process_clip(c, i, is_longform=True) for i, c in enumerate(raw_clips)]
-        short_clips = [processor.process_clip(c, i, is_longform=False) for i, c in enumerate(raw_clips)]
+        long_raw = [fetcher.fetch_video(s['visual_prompt'], f"output/clip_long_{i}.mp4") for i, s in enumerate(long_script.get('segments', []))]
+        short_raw = [fetcher.fetch_video(s['visual_prompt'], f"output/clip_short_{i}.mp4") for i, s in enumerate(short_script.get('segments', []))]
         
-        # 5. Render Video Formats
-        print("\n[5/7] Rendering formats (Long-form & Short-form)...")
-        renderer_long = VideoRenderer(is_longform=True)
-        longform_video = renderer_long.render(audio_path, long_clips, output_path=f"{filename_base}_longform.mp4")
+        # 4. Process Clips
+        long_clips = [ClipProcessor().process_clip(c, i, is_longform=True) for i, c in enumerate(long_raw) if c]
+        short_clips = [ClipProcessor().process_clip(c, i, is_longform=False) for i, c in enumerate(short_raw) if c]
         
-        renderer_short = VideoRenderer(is_longform=False)
-        shortform_video = renderer_short.render(audio_path, short_clips, output_path=f"{filename_base}_shortform.mp4")
+        # 5. Render
+        print("\n[5/7] Rendering...")
+        with ThreadPool(processes=2) as pool:
+            ar_long = pool.apply_async(VideoRenderer(is_longform=True).render, (audio_long, long_clips, f"{filename_base}_longform.mp4"))
+            ar_short = pool.apply_async(VideoRenderer(is_longform=False).render, (audio_short, short_clips, f"{filename_base}_shortform.mp4"))
+            longform_video = ar_long.get()
+            shortform_video = ar_short.get()
         
-        # 6. Quality Assurance
-        print("\n[6/6] Running automated Quality Assurance check...")
+        # 6. QA
+        print("\n[6/7] Running QA...")
         qa = QAEngine()
-        success_rate = qa.run_qa(longform_video, audio_path, full_text)
+        success = qa.run_qa(longform_video, audio_long, " ".join([s['text'] for s in long_script.get('segments', [])]))
         
-        if success_rate >= 0.85:
-            print(f"✅ QA passed on attempt {attempt + 1}!")
+        if success >= 0.85:
+            # Thumbnail & Publish
+            thumb_path = ThumbnailGenerator().generate_from_video(longform_video, long_script['title'], output_path=f"{filename_base}_thumbnail.jpg")
             
-            # Generate thumbnail
-            print("\n[Generating thumbnail...]")
-            thumbnail_gen = ThumbnailGenerator()
-            thumbnail_path = thumbnail_gen.generate_from_video(longform_video, script_data.get('title', 'Stoic Wisdom'), output_path=f"{filename_base}_thumbnail.jpg")
-            
-            # 7. Auto-Publish to Social Media
-            print("\n[7/7] Auto-publishing to social platforms...")
-            
-            # Publish to YouTube (Longform)
+            # Auto-Publish
+            print("\n[7/7] Auto-publishing...")
             youtube_pub = YouTubePublisher()
-            if os.path.exists(longform_video):
-                yt_result = youtube_pub.upload_video(script_data, longform_video, thumbnail_path=thumbnail_path)
-                if yt_result:
-                    print(f"✅ YouTube upload successful: {yt_result.get('video_url', 'N/A')}")
+            if os.path.exists(longform_video): youtube_pub.upload_video(long_script, longform_video, thumbnail_path=thumb_path)
+            youtube_pub.upload_video(short_script, shortform_video)
             
-            # Publish to Instagram (Shortform)
             ig_pub = InstagramPublisher()
-            if ig_pub.is_ready():
-                ig_result = ig_pub.upload_reel(script_data, shortform_video)
-                if ig_result:
-                    print(f"✅ Instagram Reels upload successful: {ig_result.get('upload_url', 'N/A')}")
-            
-            # Publish to YouTube Shorts
-            print(" uploading shortform to YT...")
-            # We can use youtube_pub.upload_video for Shorts too, just passing shortform_video
-            yt_short_result = youtube_pub.upload_video(script_data, shortform_video)
-            if yt_short_result:
-                print(f"✅ YouTube Shorts upload successful: {yt_short_result.get('video_url', 'N/A')}")
-            else:
-                print("⚠ Instagram publishing skipped: token/account_id not configured")
-            
-            # Break loop on success
+            if ig_pub.is_ready(): ig_pub.upload_reel(short_script, shortform_video)
             break
         else:
-            print(f"⚠️ Attempt {attempt + 1} failed QA ({success_rate*100:.1f}%). Retrying...")
+            print(f"⚠️ Attempt {attempt + 1} failed QA ({success*100:.1f}%). Retrying...")
     else:
         print(f"\n❌ Pipeline failed after {max_attempts} attempts.")
         return

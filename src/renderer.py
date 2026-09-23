@@ -64,8 +64,9 @@ class VideoRenderer:
 
         video = CompositeVideoClip(overlay_elements).set_audio(audio_clip)
         
-        # Windows-specific fix for temp file permission errors
-        temp_audio = os.path.join(os.path.dirname(output_path), "temp_audio_render.m4a")
+        # Windows-specific fix for temp file permission errors - Use unique filenames for parallel renders
+        unique_suffix = os.path.basename(output_path).replace('.mp4', '')
+        temp_audio = os.path.join(os.path.dirname(output_path), f"temp_audio_{unique_suffix}.m4a")
         
         video.write_videofile(
             output_path,
