@@ -5,14 +5,7 @@ import os
 import yaml
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import VideoFileClip
-
-class ThumbnailGenerator:
-    """
-    Generates custom thumbnails for YouTube videos with brand styling.
-    """
-    
 from src.config_loader import load_config
-from PIL import Image, ImageDraw, ImageFont
 
 class ThumbnailGenerator:
     """

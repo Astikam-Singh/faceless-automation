@@ -1,8 +1,6 @@
 import os
 import yaml
 from moviepy.editor import AudioFileClip, ColorClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips, vfx
-
-class VideoRenderer:
 from src.config_loader import load_config
 
 class VideoRenderer:

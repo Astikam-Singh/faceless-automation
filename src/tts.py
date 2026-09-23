@@ -1,4 +1,5 @@
-﻿from src.config_loader import load_config
+﻿import os
+from src.config_loader import load_config
 import subprocess
 import sys
 

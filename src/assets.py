@@ -2,8 +2,6 @@ import os
 import requests
 import yaml
 import time
-
-class AssetFetcher:
 from src.config_loader import load_config
 
 class AssetFetcher:

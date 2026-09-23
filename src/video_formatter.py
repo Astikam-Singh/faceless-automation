@@ -1,16 +1,7 @@
 import os
 import yaml
 from moviepy.editor import VideoFileClip, concatenate_videoclips, ColorClip
-
-class VideoFormatter:
-    """
-    Handles multi-format video generation:
-    - Long-form (10-12 minutes) for YouTube
-    - Short-form (45-60 seconds) for Instagram Reels & YouTube Shorts
-    """
-    
 from src.config_loader import load_config
-from moviepy.editor import VideoFileClip, concatenate_videoclips, ColorClip
 
 class VideoFormatter:
     """
