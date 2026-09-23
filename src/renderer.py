@@ -5,7 +5,8 @@ from moviepy.editor import AudioFileClip, ColorClip, VideoFileClip, CompositeVid
 class VideoRenderer:
     def __init__(self, config_path=None, is_longform=False):
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config.yaml')
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            config_path = os.path.join(base_dir, 'config.yaml')
         with open(config_path, "r", encoding="utf-8") as f:
             self.config = yaml.load(f, Loader=yaml.SafeLoader)
         

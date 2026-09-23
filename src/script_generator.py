@@ -6,8 +6,9 @@ from google.genai import types
 class ScriptGenerator:
     def __init__(self, config_path=None):
         if config_path is None:
-            # Resolve path relative to this file's location (src/), looking for config.yaml in parent dir (./)
-            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config.yaml')
+            # Use absolute path from current script location
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            config_path = os.path.join(base_dir, 'config.yaml')
             
         with open(config_path, "r", encoding="utf-8") as f:
             self.config = yaml.load(f, Loader=yaml.SafeLoader)
