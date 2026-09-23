@@ -1,0 +1,11 @@
+output/
+.git/
+__pycache__/
+*.pyc
+*.mp3
+*.mp4
+*.log
+.env
+config.yaml
+client_secret.json
+token.pickle

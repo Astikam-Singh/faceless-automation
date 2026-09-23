@@ -1,0 +1,25 @@
+name: Daily Pipeline Run
+on:
+  schedule:
+    - cron: '0 0 * * *' # Midnight every day
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: Run Pipeline
+        env:
+          GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)
+          python -m src.main
