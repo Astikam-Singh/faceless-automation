@@ -16,6 +16,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+      - name: Prep Config
+        run: cp config.template.yaml config.yaml
       - name: Run Pipeline
         env:
           GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}

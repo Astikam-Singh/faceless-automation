@@ -2,26 +2,29 @@ import os
 import yaml
 
 def get_config_path():
-    """Returns the absolute path to config.yaml regardless of execution directory."""
-    # Try looking in the current working directory first (often the repo root in Ci/CD)
-    cwd_path = os.path.join(os.getcwd(), 'config.yaml')
-    if os.path.exists(cwd_path):
-        return cwd_path
+    """Returns the absolute path to config.yaml (or config.template.yaml)"""
+    # 1. Look for config.yaml (if user provided it locally)
+    config_yaml = os.path.join(os.getcwd(), 'config.yaml')
+    if os.path.exists(config_yaml):
+        return config_yaml
         
-    # Fallback to relative calculation
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config_path = os.path.join(base_dir, 'config.yaml')
-    
-    # Debug print for CI/CD visibility
-    print(f"DEBUG: Looking for config at: {config_path}")
-    print(f"DEBUG: Root dir exists: {os.path.exists(base_dir)}")
-    print(f"DEBUG: Config exists: {os.path.exists(config_path)}")
-    print(f"DEBUG: Current directory contents: {os.listdir(os.getcwd())}")
-    
-    return config_path
+    # 2. Fallback to config.template.yaml (for CI/CD environments)
+    template_yaml = os.path.join(os.getcwd(), 'config.template.yaml')
+    if os.path.exists(template_yaml):
+        return template_yaml
+        
+    raise FileNotFoundError("Neither config.yaml nor config.template.yaml found!")
 
 def load_config():
-    """Loads the configuration from config.yaml."""
-    config_path = get_config_path()
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.load(f, Loader=yaml.SafeLoader)
+    """Loads the configuration with support for environment variable overrides."""
+    path = get_config_path()
+    with open(path, "r", encoding="utf-8") as f:
+        config = yaml.load(f, Loader=yaml.SafeLoader)
+        
+    # Override with env vars if present (Crucial for CI/CD)
+    if os.getenv("GOOGLE_GEMINI_API_KEY"): config['google_gemini_api_key'] = os.getenv("GOOGLE_GEMINI_API_KEY")
+    if os.getenv("PEXELS_API_KEY"): config['pexels_api_key'] = os.getenv("PEXELS_API_KEY")
+    if os.getenv("PIXABAY_API_KEY"): config['pixabay_api_key'] = os.getenv("PIXABAY_API_KEY")
+    if os.getenv("HUGGINGFACE_API_KEY"): config['tts']['huggingface_api_key'] = os.getenv("HUGGINGFACE_API_KEY")
+    
+    return config

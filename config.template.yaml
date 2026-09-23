@@ -1,0 +1,48 @@
+niche:
+  name: "Stoic Philosophy & Mindset"
+  brand_name: "Ancient Mindset Lab"
+  target_audience: "USA 18-35 Male/Female self-improvement"
+  # Dynamic durations supported now
+  min_longform_minutes: 10
+  max_longform_minutes: 25
+  min_shortform_seconds: 30
+  max_shortform_seconds: 60
+  fps: 30
+  resolution_longform: [1920, 1080]  # 16:9 Landscape
+  resolution_shortform: [1080, 1920] # 9:16 Vertical
+
+assets:
+  logo_path: "assets/logo.png"
+  subscribe_anim_path: "assets/subscribe.mp4"
+  watermark_opacity: 0.3
+  watermark_position: ["right", "top"]
+
+output:
+  cleanup_older_than_days: 7  # Auto-delete files older than 7 days
+  max_cache_size_gb: 5  # Maximum cache size before cleanup
+
+tts:
+  voice: "en-US-ChristopherNeural" # High-quality US male voice
+  rate: "+0%"
+  volume: "+0%"
+
+publishing:
+  youtube:
+    enabled: true
+    client_secret_file: "client_secret.json"
+    channel_id: "UCY1nPXiNzSOfRbgWm2WqSCQ"
+  instagram:
+    enabled: true
+    access_token: "TEMP"
+    instagram_account_id: "TEMP"
+
+video_formats:
+  youtube_longform:
+    enabled: true
+    duration_minutes: 10  # 10-12 minute YouTube videos
+  instagram_reels:
+    enabled: true
+    duration_seconds: 60  # 45-60 second Reels
+  youtube_shorts:
+    enabled: true
+    duration_seconds: 60  # 60 second Shorts
