@@ -73,7 +73,7 @@ def main():
         full_text = " ".join([seg['text'] for seg in segments])
         
         # 2. Generate Voiceover
-        print("\n[2/6] Generating neural voiceover via Edge-TTS...")
+        print("\n[2/7] Generating neural voiceover via Hugging Face...")
         tts = TextToSpeech()
         audio_path = tts.generate_voiceover(script_data['segments'])
         print(f"Audio ready at {audio_path}")
@@ -131,6 +131,13 @@ def main():
                 ig_result = ig_pub.upload_reel(script_data, shortform_video)
                 if ig_result:
                     print(f"✅ Instagram Reels upload successful: {ig_result.get('upload_url', 'N/A')}")
+            
+            # Publish to YouTube Shorts
+            print(" uploading shortform to YT...")
+            # We can use youtube_pub.upload_video for Shorts too, just passing shortform_video
+            yt_short_result = youtube_pub.upload_video(script_data, shortform_video)
+            if yt_short_result:
+                print(f"✅ YouTube Shorts upload successful: {yt_short_result.get('video_url', 'N/A')}")
             else:
                 print("⚠ Instagram publishing skipped: token/account_id not configured")
             

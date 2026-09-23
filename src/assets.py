@@ -1,6 +1,7 @@
 import os
 import requests
 import yaml
+import time
 
 class AssetFetcher:
     def __init__(self, config_path="config.yaml"):
@@ -42,10 +43,24 @@ class AssetFetcher:
                 
                 if best_file:
                     download_url = best_file["link"]
-                    v_data = requests.get(download_url)
-                    with open(output_path, "wb") as f:
-                        f.write(v_data.content)
-                    return output_path
+                    print(f"   Downloading: {download_url[:50]}...")
+                    
+                    # Robust download with stream and retry
+                    for attempt in range(3):
+                        try:
+                            with requests.get(download_url, stream=True, timeout=30) as r:
+                                r.raise_for_status()
+                                with open(output_path, "wb") as f:
+                                    for chunk in r.iter_content(chunk_size=8192):
+                                        if chunk: f.write(chunk)
+                            print(f"   ✅ Saved: {output_path}")
+                            return output_path
+                        except Exception as e:
+                            print(f"   ⚠ Download attempt {attempt+1} failed: {e}")
+                            if os.path.exists(output_path):
+                                os.remove(output_path)
+                            time.sleep(5) # Wait before retry
+                    print(f"❌ Failed to download {download_url} after 3 attempts.")
         return None
 
 if __name__ == "__main__":
