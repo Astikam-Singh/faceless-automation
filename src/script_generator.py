@@ -2,8 +2,6 @@ import os
 import yaml
 from google import genai
 from google.genai import types
-
-class ScriptGenerator:
 from src.config_loader import load_config
 
 class ScriptGenerator:
