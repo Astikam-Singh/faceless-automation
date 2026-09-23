@@ -4,7 +4,9 @@ import yaml
 import time
 
 class AssetFetcher:
-    def __init__(self, config_path="config.yaml"):
+    def __init__(self, config_path=None):
+        if config_path is None:
+            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config.yaml')
         with open(config_path, "r", encoding="utf-8") as f:
             self.config = yaml.load(f, Loader=yaml.SafeLoader)
         
