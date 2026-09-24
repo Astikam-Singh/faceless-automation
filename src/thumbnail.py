@@ -1,4 +1,4 @@
-"""
+﻿"""
 Thumbnail generator for Ancient Mindset Lab videos
 """
 import os
@@ -33,7 +33,7 @@ class ThumbnailGenerator:
         Generate high-CTR thumbnail with trendy styling.
         """
         if not os.path.exists(video_path):
-            print(f"❌ Video file not found: {video_path}")
+            print(f"âŒ Video file not found: {video_path}")
             return None
         
         if output_path is None:
@@ -74,11 +74,11 @@ class ThumbnailGenerator:
                 self._add_logo(img)
             
             img.save(output_path, 'JPEG', quality=95)
-            print(f"✅ Trendy thumbnail generated: {output_path}")
+            print(f"âœ… Trendy thumbnail generated: {output_path}")
             return output_path
             
         except Exception as e:
-            print(f"❌ Failed to generate thumbnail: {e}")
+            print(f"âŒ Failed to generate thumbnail: {e}")
             return None
 
     def _crop_to_aspect(self, img, target_ratio):
@@ -164,7 +164,7 @@ class ThumbnailGenerator:
         
         # Save
         img.save(output_path, 'JPEG', quality=95)
-        print(f"✅ Static thumbnail generated: {output_path}")
+        print(f"âœ… Static thumbnail generated: {output_path}")
         return output_path
     
     def _add_text(self, draw, text, y_offset, font_size=32, color=None, bold=False):

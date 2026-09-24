@@ -1,4 +1,4 @@
-import os
+﻿import os
 import yaml
 
 def get_config_path():

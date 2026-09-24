@@ -1,4 +1,4 @@
-import os
+﻿import os
 import cv2
 import numpy as np
 import whisper
@@ -20,12 +20,12 @@ class QAEngine:
         leak_keywords = ["prosody", "speak", "version", "xml"]
         for keyword in leak_keywords:
             if keyword in transcript:
-                print(f"❌ Audio QA Failed: Detected TTS tag leakage ('{keyword}')")
+                print(f"âŒ Audio QA Failed: Detected TTS tag leakage ('{keyword}')")
                 return 0.2  # Low score
 
         # Check for transcription similarity (simple length check)
         if len(transcript) < len(expected_text) * 0.5:
-             print("❌ Audio QA Failed: Transcription too short.")
+             print("âŒ Audio QA Failed: Transcription too short.")
              return 0.4
         
         return 1.0 # Successful
@@ -53,7 +53,7 @@ class QAEngine:
         
         success_rate = 1.0 - ((black_frames + stuck_frames) / (total_frames / 30))
         if success_rate < 0.8:
-            print(f"❌ Video QA Failed: Success rate {success_rate:.2f} too low.")
+            print(f"âŒ Video QA Failed: Success rate {success_rate:.2f} too low.")
         return success_rate
 
     def run_qa(self, video_path, audio_path, expected_text):
@@ -61,7 +61,7 @@ class QAEngine:
         audio_score = self.analyze_audio(audio_path, expected_text)
         
         total_score = (video_score + audio_score) / 2
-        print(f"\n📊 QA Report:")
+        print(f"\nðŸ“Š QA Report:")
         print(f"   - Video Score: {video_score*100:.1f}%")
         print(f"   - Audio Score: {audio_score*100:.1f}%")
         print(f"   - Final Success Rate: {total_score*100:.1f}%")

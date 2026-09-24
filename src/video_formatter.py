@@ -1,4 +1,4 @@
-import os
+﻿import os
 import yaml
 from moviepy.editor import VideoFileClip, concatenate_videoclips, ColorClip
 from src.config_loader import load_config
@@ -34,7 +34,7 @@ class VideoFormatter:
         # Calculate repeats needed
         num_repeats = int(target_duration / base_duration) + 1
         
-        print(f"Creating long-form video: {base_duration:.1f}s × {num_repeats} = {base_duration * num_repeats:.1f}s")
+        print(f"Creating long-form video: {base_duration:.1f}s Ã— {num_repeats} = {base_duration * num_repeats:.1f}s")
         
         # Create long-form by concatenating repeated clips
         clips = [base_clip for _ in range(num_repeats)]
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     base_video = "output/final_video.mp4"
     if os.path.exists(base_video):
         longform = formatter.create_longform_video(base_video)
-        print(f"\n✅ Long-form video: {longform}")
+        print(f"\nâœ… Long-form video: {longform}")
         
         shortform = formatter.create_shortform_video(base_video)
-        print(f"✅ Short-form video: {shortform}")
+        print(f"âœ… Short-form video: {shortform}")

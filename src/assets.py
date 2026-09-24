@@ -1,4 +1,4 @@
-import os
+﻿import os
 import requests
 import yaml
 import time
@@ -53,14 +53,14 @@ class AssetFetcher:
                                 with open(output_path, "wb") as f:
                                     for chunk in r.iter_content(chunk_size=8192):
                                         if chunk: f.write(chunk)
-                            print(f"   ✅ Saved: {output_path}")
+                            print(f"   âœ… Saved: {output_path}")
                             return output_path
                         except Exception as e:
-                            print(f"   ⚠ Download attempt {attempt+1} failed: {e}")
+                            print(f"   âš  Download attempt {attempt+1} failed: {e}")
                             if os.path.exists(output_path):
                                 os.remove(output_path)
                             time.sleep(5) # Wait before retry
-                    print(f"❌ Failed to download {download_url} after 3 attempts.")
+                    print(f"âŒ Failed to download {download_url} after 3 attempts.")
         return None
 
 if __name__ == "__main__":

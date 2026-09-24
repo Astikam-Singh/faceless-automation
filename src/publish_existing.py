@@ -1,4 +1,4 @@
-import os
+﻿import os
 import glob
 from src.publishers.youtube import YouTubePublisher
 from src.publishers.instagram import InstagramPublisher
@@ -26,7 +26,7 @@ def publish_latest():
     print(f"Found latest files:\n - Long: {latest_long}\n - Short: {latest_short}\n - Thumbnail: {latest_thumb}")
     
     if not latest_long or not latest_short:
-        print("❌ Could not find generated long-form or short-form videos.")
+        print("âŒ Could not find generated long-form or short-form videos.")
         return
         
     # Mock script data (In a real scenario, this should be persisted)
@@ -41,7 +41,7 @@ def publish_latest():
     qa = QAEngine()
     # Note: Requires audio_path, will just use placeholder audio if not strictly required or use latest found.
     success_rate = qa.analyze_video(latest_long)
-    print(f"📊 Video QA Score: {success_rate*100:.1f}%")
+    print(f"ðŸ“Š Video QA Score: {success_rate*100:.1f}%")
     
     if success_rate >= 0.85:
         # Thumbnail Generation
@@ -55,9 +55,9 @@ def publish_latest():
         ig_pub = InstagramPublisher()
         ig_result = ig_pub.upload_reel(script_data, latest_short)
         
-        print("✨ Publishing sequence complete.")
+        print("âœ¨ Publishing sequence complete.")
     else:
-        print("❌ QA Failed. Cannot publish.")
+        print("âŒ QA Failed. Cannot publish.")
 
 if __name__ == "__main__":
     publish_latest()
