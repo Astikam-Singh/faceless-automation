@@ -36,12 +36,12 @@ class ScriptGenerator:
         )
         
         @tenacity.retry(
-            wait=tenacity.wait_exponential(multiplier=2, min=5, max=60),
-            stop=tenacity.stop_after_attempt(5)
+            wait=tenacity.wait_exponential(multiplier=5, min=10, max=120),
+            stop=tenacity.stop_after_attempt(10)
         )
         def _call_model():
             response = self.client.models.generate_content(
-                model='gemini-3.1-flash-lite',
+                model='gemini-2.0-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
