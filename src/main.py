@@ -1,6 +1,8 @@
-import os
+﻿import os
 import json
 from datetime import datetime
+import time
+from multiprocessing.pool import ThreadPool
 from src.script_generator import ScriptGenerator
 from src.tts import TextToSpeech
 from src.assets import AssetFetcher
@@ -10,44 +12,20 @@ from src.clip_processor import ClipProcessor
 from src.publishers.youtube import YouTubePublisher
 from src.publishers.instagram import InstagramPublisher
 from src.qa_engine import QAEngine
-import time
-from multiprocessing.pool import ThreadPool
 
-#safe version commit id: 593232b
 def cleanup_old_files(config_path="config.yaml"):
-    """Auto-cleanup old output files to prevent disk space issues."""
     import yaml
-    import time
-    
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.load(f, Loader=yaml.SafeLoader)
-    
     output_dir = "output"
-    if not os.path.exists(output_dir):
-        return
-    
+    if not os.path.exists(output_dir): return
     cleanup_days = config.get('output', {}).get('cleanup_older_than_days', 7)
     max_age_seconds = cleanup_days * 24 * 60 * 60
-    
     current_time = time.time()
-    deleted_count = 0
-    deleted_size = 0
-    
     for filename in os.listdir(output_dir):
         filepath = os.path.join(output_dir, filename)
-        if os.path.isfile(filepath):
-            file_age = current_time - os.path.getmtime(filepath)
-            if file_age > max_age_seconds:
-                try:
-                    size = os.path.getsize(filepath)
-                    os.remove(filepath)
-                    deleted_count += 1
-                    deleted_size += size
-                except Exception as e:
-                    print(f"  Could not delete {filename}: {e}")
-    
-    if deleted_count > 0:
-        print(f"  ✅ Cleanup complete: Removed {deleted_count} files ({deleted_size/1024/1024:.2f} MB)")
+        if os.path.isfile(filepath) and (current_time - os.path.getmtime(filepath)) > max_age_seconds:
+            os.remove(filepath)
 
 def main():
     print("=== Starting Ancient Mindset Lab Production Pipeline ===")
@@ -116,9 +94,7 @@ def main():
     print("\n[7/7] Checking disk cleanup...")
     cleanup_old_files()
     
-    print(f"\n✨ Pipeline complete! Videos ready at output/")
-    print(f"   - Long-form: {longform_video}")
-    print(f"   - Short-form: {shortform_video}")
+    print(f"\n✨ Pipeline complete!")
 
 if __name__ == "__main__":
     main()
