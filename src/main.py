@@ -98,3 +98,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+d_files()
+    
+    print(f"\n✨ Pipeline complete!")
+os ready at output/")
+    print(f"   - Long-form: {longform_video}")
+    print(f"   - Short-form: {shortform_video}")
+
+if __name__ == "__main__":
+    main()
