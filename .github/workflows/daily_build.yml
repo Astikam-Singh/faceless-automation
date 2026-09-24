@@ -19,7 +19,10 @@ jobs:
           sudo apt-get install -y ffmpeg
           pip install -r requirements.txt
       - name: Prep Config
-        run: cp config.template.yaml config.yaml
+        run: |
+          cp config.template.yaml config.yaml
+          echo '${{ secrets.YOUTUBE_CLIENT_SECRET_JSON }}' > client_secret.json
+          echo '${{ secrets.YOUTUBE_TOKEN_PICKLE_BASE64 }}' | base64 -d > token.pickle
       - name: Run Pipeline
         env:
           GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
