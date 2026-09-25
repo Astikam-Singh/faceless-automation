@@ -81,6 +81,10 @@ class YouTubePublisher:
         # Add brand prefix to title
         if not title.lower().startswith(self.brand_name.lower()):
             title = f"{self.brand_name} | {title}"
+            
+        # Ensure YouTube title length constraint (max 100 characters)
+        if len(title) > 100:
+            title = title[:97] + "..."
         
         # Generate description
         description = f"""
