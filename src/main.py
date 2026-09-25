@@ -31,7 +31,9 @@ def main():
     print("=== Starting Ancient Mindset Lab Production Pipeline ===")
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    max_attempts = 3
+    # QA & Iteration Loop
+    # Reduced attempts to 1 to conserve strictly limited Gemini free-tier daily quota (20 requests/day)
+    max_attempts = 1
     for attempt in range(max_attempts):
         print(f"\n--- Pipeline Attempt {attempt + 1}/{max_attempts} ---")
         
