@@ -9,6 +9,8 @@ from src.config_loader import load_config
 class ScriptGenerator:
     def __init__(self):
         self.config = load_config()
+        mode = self.config.get("mode", "generate")
+        print(f"DEBUG: ScriptGenerator initialized. Mode: {mode}")
         
         # Load API key from env or config
         api_key = os.getenv("GOOGLE_GEMINI_API_KEY", self.config.get("google_gemini_api_key", ""))
@@ -17,6 +19,7 @@ class ScriptGenerator:
     def generate_script(self, is_longform=False):                
         # Use pregenerated script file if configured
         if self.config.get("mode") == "pregenerated":
+            print(f"DEBUG: Entering pregenerated mode.")
             batch_file = self.config.get("batch_file")
             if not batch_file or not os.path.exists(batch_file):
                 raise Exception(f"Pregenerated batch file not found: {batch_file}")
@@ -24,11 +27,9 @@ class ScriptGenerator:
             with open(batch_file, 'r') as f:
                 data = json.load(f)
             
-            # Rotation or Combination
             source = data["longform"] if is_longform else data["shortform"]
             if not source:
-                print(f"⚠️ No scripts found for {'longform' if is_longform else 'shortform'}, returning None.")
-                return None
+                raise Exception(f"⚠️ No scripts found for {'longform' if is_longform else 'shortform'} in batch file.")
             
             if is_longform:
                 # Combine ALL available longform scripts for maximum duration
@@ -43,7 +44,6 @@ class ScriptGenerator:
                     combined_script["segments"].extend(s.get("segments", []))
                 return combined_script
             else:
-                # Simple rotation for shortform
                 import datetime
                 day_of_year = datetime.datetime.now().timetuple().tm_yday
                 idx = day_of_year % len(source)
@@ -51,6 +51,9 @@ class ScriptGenerator:
                 print(f"📄 Loaded pregenerated shortform script index {idx}.")
                 return script
 
+        # Strict check: If not in pregenerated mode, we are allowed to generate
+        print(f"DEBUG: Mode is not pregenerated. Proceeding with Gemini API generation.")
+        
         brand = self.config['niche'].get('brand_name', 'Ancient Mindset Lab')
         min_dur = self.config['niche'].get('min_longform_minutes', 10) if is_longform else (self.config['niche'].get('min_shortform_seconds', 30)/60)
         max_dur = self.config['niche'].get('max_longform_minutes', 25) if is_longform else (self.config['niche'].get('max_shortform_seconds', 60)/60)
