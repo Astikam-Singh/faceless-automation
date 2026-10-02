@@ -9,9 +9,10 @@ from src.config_loader import load_config
 class ScriptGenerator:
     def __init__(self):
         self.config = load_config()
-        # FORCE pregenerated mode here to override anything in config.yaml
+        # FORCE pregenerated mode and batch file location to override anything in config.yaml
         self.config['mode'] = "pregenerated"
-        print(f"DEBUG: ScriptGenerator initialized. FORCED Mode: {self.config.get('mode')}")
+        self.config['batch_file'] = "scripts/pregenerated/longform_only.json"
+        print(f"DEBUG: ScriptGenerator initialized. FORCED Mode: {self.config.get('mode')}, FORCED Files: {self.config.get('batch_file')}")
         
         # Load API key from env or config
         api_key = os.getenv("GOOGLE_GEMINI_API_KEY", self.config.get("google_gemini_api_key", ""))
