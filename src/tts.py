@@ -23,6 +23,13 @@ class TextToSpeech:
         
         # Combine text segments
         text = " ".join([seg["text"].replace("&", "and") for seg in segments])
+        # Use ascii encoding with replace to strip problematic unicode surrogate characters
+        text = text.encode("ascii", "replace").decode("ascii").replace("?", " ")
+        text = text.strip()
+        
+        if not text:
+            print("⚠️ No valid text for voiceover. Skipping Piper.")
+            return None
         
         print(f"🔊 Generating local voiceover with Piper: {text[:50]}...")
         

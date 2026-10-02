@@ -29,14 +29,14 @@ def cleanup_old_files(config_path="config.yaml"):
 
 def main():
     print("=== Starting Ancient Mindset Lab Production Pipeline ===")
-    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     
     max_attempts = 3
     for attempt in range(max_attempts):
         print(f"\n--- Pipeline Attempt {attempt + 1}/{max_attempts} ---")
         
         # 1. Generate Scripts
-        print("\n[1/7] Generating unique viral scripts...")
+        print("\n[1/7] Skipping script generation and loading pre-generated...")
         script_gen = ScriptGenerator()
         long_script = script_gen.generate_script(is_longform=True)
         short_script = script_gen.generate_script(is_longform=False)
@@ -45,14 +45,33 @@ def main():
         # 2. Generate Voiceovers
         print("\n[2/7] Generating voiceovers...")
         tts = TextToSpeech()
-        audio_long = tts.generate_voiceover(long_script['segments'], output_path=f"{filename_base}_long_audio.mp3")
-        audio_short = tts.generate_voiceover(short_script['segments'], output_path=f"{filename_base}_short_audio.mp3")
+        # Defensive check: ensure segments are correctly formatted and have text
+        l_segments = [s for s in long_script.get('segments', []) if isinstance(s, dict) and 'text' in s] if long_script else []
+        s_segments = [s for s in short_script.get('segments', []) if isinstance(s, dict) and 'text' in s] if short_script else []
+        
+        audio_long = tts.generate_voiceover(l_segments, output_path=f"{filename_base}_long_audio.mp3") if l_segments else None
+        audio_short = tts.generate_voiceover(s_segments, output_path=f"{filename_base}_short_audio.mp3") if s_segments else None
         
         # 3. Fetch Visual Assets
         print("\n[3/7] Fetching unique assets...")
         fetcher = AssetFetcher()
-        long_raw = [fetcher.fetch_video(s['visual_prompt'], f"output/clip_long_{i}.mp4") for i, s in enumerate(long_script.get('segments', []))]
-        short_raw = [fetcher.fetch_video(s['visual_prompt'], f"output/clip_short_{i}.mp4") for i, s in enumerate(short_script.get('segments', []))]
+        long_raw = []
+        if long_script and 'segments' in long_script:
+            for i, s in enumerate(long_script.get('segments', [])):
+                if not isinstance(s, dict): continue
+                query = s.get('visual_prompt')
+                if not query: query = s.get('text', 'minimalist stoic aesthetic')
+                path = fetcher.fetch_video(query, f"output/clip_long_{i}.mp4")
+                if path: long_raw.append(path)
+            
+        short_raw = []
+        if short_script and 'segments' in short_script:
+            for i, s in enumerate(short_script.get('segments', [])):
+                if not isinstance(s, dict): continue
+                query = s.get('visual_prompt')
+                if not query: query = s.get('text', 'minimalist stoic aesthetic')                
+                path = fetcher.fetch_video(query, f"output/clip_short_{i}.mp4")
+                if path: short_raw.append(path)
         
         # 4. Process Clips
         long_clips = [ClipProcessor().process_clip(c, i, is_longform=True) for i, c in enumerate(long_raw) if c]
@@ -61,15 +80,22 @@ def main():
         # 5. Render
         print("\n[5/7] Rendering...")
         with ThreadPool(processes=2) as pool:
-            ar_long = pool.apply_async(VideoRenderer(is_longform=True).render, (audio_long, long_clips, f"{filename_base}_longform.mp4"))
-            ar_short = pool.apply_async(VideoRenderer(is_longform=False).render, (audio_short, short_clips, f"{filename_base}_shortform.mp4"))
-            longform_video = ar_long.get()
-            shortform_video = ar_short.get()
+            # Only render if valid audio path exists
+            params_long = (audio_long, long_clips, f"{filename_base}_longform.mp4") if audio_long else None
+            params_short = (audio_short, short_clips, f"{filename_base}_shortform.mp4") if audio_short else None
+            
+            ar_long = pool.apply_async(VideoRenderer(is_longform=True).render, params_long) if params_long else None
+            ar_short = pool.apply_async(VideoRenderer(is_longform=False).render, params_short) if params_short else None
+            
+            longform_video = ar_long.get() if ar_long else None
+            shortform_video = ar_short.get() if ar_short else None
         
         # 6. QA
         print("\n[6/7] Running QA...")
         qa = QAEngine()
-        success = qa.run_qa(longform_video, audio_long, " ".join([s['text'] for s in long_script.get('segments', [])]))
+        # Defensive check: use .get for text to avoid KeyError
+        text_content = " ".join([s.get('text', '') for s in long_script.get('segments', []) if isinstance(s, dict)])
+        success = qa.run_qa(longform_video, audio_long, text_content)
         
         if success >= 0.85:
             # Thumbnail & Publish

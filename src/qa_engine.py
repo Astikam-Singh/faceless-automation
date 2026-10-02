@@ -57,6 +57,10 @@ class QAEngine:
         return success_rate
 
     def run_qa(self, video_path, audio_path, expected_text):
+        if not video_path or not audio_path:
+            print("⚠️ Skipping QA: Missing input files.")
+            return 0.0
+            
         video_score = self.analyze_video(video_path)
         audio_score = self.analyze_audio(audio_path, expected_text)
         

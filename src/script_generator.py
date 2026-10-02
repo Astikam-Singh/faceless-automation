@@ -15,6 +15,42 @@ class ScriptGenerator:
         self.client = genai.Client(api_key=api_key) if api_key and api_key != "YOUR_GEMINI_API_KEY" else genai.Client()
 
     def generate_script(self, is_longform=False):                
+        # Use pregenerated script file if configured
+        if self.config.get("mode") == "pregenerated":
+            batch_file = self.config.get("batch_file")
+            if not batch_file or not os.path.exists(batch_file):
+                raise Exception(f"Pregenerated batch file not found: {batch_file}")
+            
+            with open(batch_file, 'r') as f:
+                data = json.load(f)
+            
+            # Rotation or Combination
+            source = data["longform"] if is_longform else data["shortform"]
+            if not source:
+                print(f"⚠️ No scripts found for {'longform' if is_longform else 'shortform'}, returning None.")
+                return None
+            
+            if is_longform:
+                # Combine ALL available longform scripts for maximum duration
+                print(f"🔗 Concatenating {len(source)} longform scripts for extended duration.")
+                combined_script = {
+                    "title": "Stoic Wisdom Deep Dive",
+                    "description": "A comprehensive compilation of Stoic teachings.",
+                    "hashtags": source[0].get("hashtags", ""),
+                    "segments": []
+                }
+                for s in source:
+                    combined_script["segments"].extend(s.get("segments", []))
+                return combined_script
+            else:
+                # Simple rotation for shortform
+                import datetime
+                day_of_year = datetime.datetime.now().timetuple().tm_yday
+                idx = day_of_year % len(source)
+                script = source[idx]
+                print(f"📄 Loaded pregenerated shortform script index {idx}.")
+                return script
+
         brand = self.config['niche'].get('brand_name', 'Ancient Mindset Lab')
         min_dur = self.config['niche'].get('min_longform_minutes', 10) if is_longform else (self.config['niche'].get('min_shortform_seconds', 30)/60)
         max_dur = self.config['niche'].get('max_longform_minutes', 25) if is_longform else (self.config['niche'].get('max_shortform_seconds', 60)/60)
