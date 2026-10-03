@@ -12,7 +12,8 @@ niche:
   resolution_shortform: [1080, 1920] # 9:16 Vertical
 
 # mode: generate or pregenerated
-mode: "generate"
+mode: "pregenerated"
+batch_file: "scripts/pregenerated/longform_only.json"
 
 assets:
   logo_path: "assets/logo.png"
