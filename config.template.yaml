@@ -11,6 +11,9 @@ niche:
   resolution_longform: [1920, 1080]  # 16:9 Landscape
   resolution_shortform: [1080, 1920] # 9:16 Vertical
 
+# mode: generate or pregenerated
+mode: "generate"
+
 assets:
   logo_path: "assets/logo.png"
   subscribe_anim_path: "assets/subscribe.mp4"
