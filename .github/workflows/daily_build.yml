@@ -1,12 +1,15 @@
 name: Daily Pipeline Run
 on:
   schedule:
-    - cron: '0 0 * * *' # Midnight every day
-  workflow_dispatch: # Allows manual trigger
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pipeline: [src/longform_pipeline.py, src/shortform_pipeline.py]
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
@@ -25,10 +28,10 @@ jobs:
           echo '${{ secrets.YOUTUBE_TOKEN_PICKLE_BASE64 }}' | base64 -d > token.pickle
       - name: Run Pipeline
         env:
-          GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          # Assuming config_loader handles these via os.getenv
+          API_KEYS: ${{ secrets.API_KEYS }} 
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
         run: |
           export PYTHONPATH=$PYTHONPATH:$(pwd)
-          python -m src.main
+          python ${{ matrix.pipeline }}

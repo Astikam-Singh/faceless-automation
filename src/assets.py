@@ -19,14 +19,18 @@ class AssetFetcher:
             return None
 
         headers = {"Authorization": self.pexels_key}
-        url = f"https://api.pexels.com/videos/search?query={query}&orientation=landscape&per_page=1"
+        # Fetch more videos to ensure variety
+        url = f"https://api.pexels.com/videos/search?query={query}&orientation=landscape&per_page=15"
         
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             data = response.json()
             videos = data.get("videos", [])
             if videos:
-                video_files = videos[0].get("video_files", [])
+                # Pick a random video from the top results for variety
+                import random
+                selected_video = random.choice(videos)
+                video_files = selected_video.get("video_files", [])
                 
                 # Try to get best landscape file (width >= 1280)
                 best_file = None

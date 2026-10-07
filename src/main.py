@@ -91,12 +91,15 @@ def main():
             shortform_video = ar_short.get() if ar_short else None
         
         # 6. QA
-        print("\n[6/7] Running QA...")
+        print("\n[6/7] Running QA...", flush=True)
+        print(f"DEBUG: video path to QA: {longform_video}", flush=True)
+        
         qa = QAEngine()
         # Defensive check: use .get for text to avoid KeyError
         text_content = " ".join([s.get('text', '') for s in long_script.get('segments', []) if isinstance(s, dict)])
         success = qa.run_qa(longform_video, audio_long, text_content)
         
+        print(f"DEBUG: QA Success Score: {success}", flush=True)
         if success >= 0.85:
             # Thumbnail & Publish
             thumb_path = ThumbnailGenerator().generate_from_video(longform_video, long_script['title'], output_path=f"{filename_base}_thumbnail.jpg")
@@ -109,6 +112,10 @@ def main():
             
             ig_pub = InstagramPublisher()
             if ig_pub.is_ready(): ig_pub.upload_reel(short_script, shortform_video)
+            
+            # Cleanup downloaded assets
+            for p in long_raw + short_raw:
+                if os.path.exists(p): os.remove(p)
             break
         else:
             print(f"⚠️ Attempt {attempt + 1} failed QA ({success*100:.1f}%). Retrying...")

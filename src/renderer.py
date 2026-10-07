@@ -21,23 +21,35 @@ class VideoRenderer:
 
         clips = []
         seg_duration = duration / max(1, len(processed_clips_paths))
+        # Cap visual segments to 8 seconds for longform to improve pacing
+        max_seg_dur = 8 if self.is_longform else seg_duration
+        effective_seg_duration = min(seg_duration, max_seg_dur)
         
         for clip_path in processed_clips_paths:
             try:
                 c = VideoFileClip(clip_path)
                 
                 # Ensure clip duration matches segment duration
-                if c.duration < seg_duration:
-                    c = c.fx(vfx.loop, duration=seg_duration)
+                if c.duration < effective_seg_duration:
+                    c = c.fx(vfx.loop, duration=effective_seg_duration)
                 else:
-                    c = c.subclip(0, seg_duration)
+                    c = c.subclip(0, effective_seg_duration)
                     
                 clips.append(c)
             except Exception as e:
                 print(f"Failed to load processed clip {clip_path}: {e}")
-                clips.append(ColorClip(size=(self.width, self.height), color=(20, 20, 20), duration=seg_duration))
+                clips.append(ColorClip(size=(self.width, self.height), color=(20, 20, 20), duration=effective_seg_duration))
+
 
         final_visuals = concatenate_videoclips(clips, method="compose") if clips else ColorClip(size=(self.width, self.height), color=(20, 20, 20), duration=duration)
+        
+        # Ensure visual duration matches audio duration
+        print(f"DEBUG: Visual duration: {final_visuals.duration}, Audio duration: {duration}")
+        if final_visuals.duration < duration:
+            print("⚠️ Visuals shorter than audio. Looping visuals to match duration.")
+            final_visuals = final_visuals.fx(vfx.loop, duration=duration)
+        else:
+            final_visuals = final_visuals.subclip(0, duration)
         
         overlay_elements = [final_visuals]
 
