@@ -18,6 +18,9 @@ class ScriptGenerator:
         self.model_cycle = itertools.cycle(self.models)
 
     def _get_client(self):
+        if not self.api_keys:
+            print("⚠️ No API keys found! Falling back to empty client.")
+            return OpenAI(api_key="empty", base_url=self.base_url)
         api_key = next(self.key_cycle)
         return OpenAI(api_key=api_key, base_url=self.base_url)
 
