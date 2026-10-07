@@ -34,5 +34,4 @@ jobs:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
         run: |
           export PYTHONPATH=$PYTHONPATH:$(pwd)
-          ls -R
-          python ./${{ matrix.pipeline }}
+          python ${{ matrix.pipeline }}
