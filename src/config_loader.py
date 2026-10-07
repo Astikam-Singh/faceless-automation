@@ -26,5 +26,6 @@ def load_config():
     if os.getenv("PEXELS_API_KEY"): config['pexels_api_key'] = os.getenv("PEXELS_API_KEY")
     if os.getenv("PIXABAY_API_KEY"): config['pixabay_api_key'] = os.getenv("PIXABAY_API_KEY")
     if os.getenv("HUGGINGFACE_API_KEY"): config['tts']['huggingface_api_key'] = os.getenv("HUGGINGFACE_API_KEY")
+    if os.getenv("API_KEYS"): config['api_keys'] = os.getenv("API_KEYS").split(',')
     
     return config
