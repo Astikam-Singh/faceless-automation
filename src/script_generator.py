@@ -9,12 +9,13 @@ from src.config_loader import load_config
 class ScriptGenerator:
     def __init__(self):
         self.config = load_config()
-        # Load multiple API keys for unified API (e.g. OpenRouter/Groq)
-        self.api_keys = self.config.get("api_keys", [])
+        # Force production/PIPELINE settings to bypass incomplete config loading in CI
+        self.api_keys = os.getenv("API_KEYS", "").split(',') if os.getenv("API_KEYS") else self.config.get("api_keys", [])
         self.key_cycle = itertools.cycle(self.api_keys)
-        self.base_url = self.config.get("api_base_url", "https://api.openai.com/v1")
+        # Ensure we always use the local gateway
+        self.base_url = "http://localhost:3001/v1"
         # Cycle through models
-        self.models = self.config.get("api_models", ["gpt-4o"])
+        self.models = self.config.get("api_models", ["gemini-3.7-flash"])
         self.model_cycle = itertools.cycle(self.models)
 
     def _get_client(self):
