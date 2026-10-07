@@ -12,3 +12,4 @@ google-auth-oauthlib>=1.1.0
 opencv-python-headless>=4.0.0
 tenacity>=8.0.0
 piper-tts
+openai
