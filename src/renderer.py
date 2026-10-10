@@ -86,9 +86,10 @@ class VideoRenderer:
             codec='libx264',
             audio_codec='aac',
             bitrate='10000k',  # Increased for YouTube 1080p quality
-            temp_audiofile=temp_audio,
+            TEMP_AUDIOFILE=temp_audio,
             remove_temp=True
         )
+        return output_path
         
         # Cleanup
         for c in clips: c.close()
