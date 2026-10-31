@@ -1,5 +1,7 @@
 ﻿import os
-from moviepy.editor import VideoFileClip, vfx
+import subprocess
+
+import imageio_ffmpeg
 import yaml
 
 class ClipProcessor:
@@ -17,27 +19,32 @@ class ClipProcessor:
         target_w = self.long_w if is_longform else self.short_w
         target_h = self.long_h if is_longform else self.short_h
         suffix = "long" if is_longform else "short"
-        output_path = os.path.join(output_dir, f"clip_{clip_idx}_{suffix}.mp4")
+        source_name = os.path.splitext(os.path.basename(clip_path))[0]
+        output_path = os.path.join(output_dir, f"{source_name}_{clip_idx}_{suffix}.mp4")
         
         if os.path.exists(output_path):
             return output_path
             
-        clip = VideoFileClip(clip_path)
-        
-        # Crop/Resize logic
-        target_ratio = target_w / target_h
-        clip_ratio = clip.w / clip.h
-        
-        if clip_ratio > target_ratio:
-            clip = clip.resize(height=target_h)
-            x_center = clip.w / 2
-            clip = clip.crop(x1=x_center - target_w/2, y1=0, x2=x_center + target_w/2, y2=target_h)
-        else:
-            clip = clip.resize(width=target_w)
-            y_center = clip.h / 2
-            clip = clip.crop(x1=0, y1=y_center - target_h/2, x2=target_w, y2=y_center + target_h/2)
-            
-        clip = clip.resize(newsize=(target_w, target_h))
-        clip.write_videofile(output_path, codec='libx264', audio=False, logger=None)
-        clip.close()
+        fps = self.config['niche']['fps']
+        scale_and_crop = (
+            f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+            f"crop={target_w}:{target_h},fps={fps}"
+        )
+        subprocess.run(
+            [
+                imageio_ffmpeg.get_ffmpeg_exe(),
+                "-y",
+                "-loglevel", "error",
+                "-i", clip_path,
+                "-t", "6",
+                "-vf", scale_and_crop,
+                "-an",
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                output_path,
+            ],
+            check=True,
+        )
         return output_path

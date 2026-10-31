@@ -48,6 +48,9 @@ class YouTubePublisher:
             if creds and creds.expired and creds.refresh_token:
                 print("🔄 Refreshing expired credentials...")
                 creds.refresh(Request())
+                with open(token_file, 'wb') as f:
+                    pickle.dump(creds, f)
+                print(f"✅ Refreshed credentials saved to {token_file}")
             else:
                 print(f"🌐 No valid credentials found. Starting OAuth flow...")
                 print(f"   Looking for client_secret.json at: {self.client_secret_file}")

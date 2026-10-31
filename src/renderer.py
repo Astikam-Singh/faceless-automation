@@ -1,6 +1,10 @@
 ﻿import os
-import yaml
-from moviepy.editor import AudioFileClip, ColorClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips, vfx
+import shutil
+import subprocess
+import tempfile
+
+import imageio_ffmpeg
+from moviepy.editor import AudioFileClip, VideoFileClip, CompositeVideoClip
 from src.config_loader import load_config
 
 class VideoRenderer:
@@ -12,88 +16,164 @@ class VideoRenderer:
         self.width, self.height = self.config['niche'][res_key]
         self.is_longform = is_longform
 
+    @staticmethod
+    def _shot_duration(audio_duration, clip_count):
+        if clip_count < 1:
+            raise ValueError("Cannot render without unique video clips.")
+        shot_duration = audio_duration / clip_count
+        if shot_duration > 6:
+            raise ValueError(
+                f"Only {clip_count} unique clips were fetched for {audio_duration:.1f}s of audio. "
+                "Fetch more unique clips so no shot exceeds six seconds."
+            )
+        return shot_duration
+
+    @staticmethod
+    def _allocate_shot_durations(audio_duration, source_durations, target_shot=5, max_shot=6):
+        if not source_durations:
+            raise ValueError("Cannot render without unique video clips.")
+
+        capacities = [min(max(0.0, source_duration), max_shot) for source_duration in source_durations]
+        if sum(capacities) + 0.05 < audio_duration:
+            raise ValueError(
+                f"Fetched footage covers at most {sum(capacities):.1f}s of {audio_duration:.1f}s audio. "
+                "Fetch more unique clips; footage will not be looped."
+            )
+
+        durations = [min(capacity, target_shot) for capacity in capacities]
+        remaining = max(0.0, audio_duration - sum(durations))
+        for index, capacity in enumerate(capacities):
+            extra = min(max(0.0, capacity - durations[index]), remaining)
+            durations[index] += extra
+            remaining -= extra
+            if remaining <= 0.05:
+                break
+
+        if remaining > 0.05:
+            raise ValueError("Could not allocate enough unique footage without exceeding six seconds per shot.")
+        return durations
+
+    @staticmethod
+    def _get_source_durations(processed_clips_paths):
+        durations = []
+        for clip_path in processed_clips_paths:
+            try:
+                clip = VideoFileClip(clip_path)
+            except Exception as error:
+                raise RuntimeError(f"Could not use unique shot {clip_path}: {error}") from error
+            try:
+                durations.append(clip.duration)
+            finally:
+                clip.close()
+        return durations
+
+    @staticmethod
+    def _concat_manifest_entry(clip_path):
+        absolute_path = os.path.abspath(clip_path).replace("\\", "/")
+        escaped_path = absolute_path.replace("'", "'\\''")
+        return f"file '{escaped_path}'\n"
+
     def render(self, audio_path: str, processed_clips_paths: list, output_path: str = "output/final_video.mp4"):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
         audio_clip = AudioFileClip(audio_path)
         duration = audio_clip.duration
         brand_name = self.config['niche'].get('brand_name', 'Ancient Mindset Lab')
+        try:
+            source_durations = self._get_source_durations(processed_clips_paths)
+            self._allocate_shot_durations(duration, source_durations)
+        except Exception:
+            audio_clip.close()
+            raise
 
-        clips = []
-        seg_duration = duration / max(1, len(processed_clips_paths))
-        # Cap visual segments to 8 seconds for longform to improve pacing
-        max_seg_dur = 8 if self.is_longform else seg_duration
-        effective_seg_duration = min(seg_duration, max_seg_dur)
-        
-        for clip_path in processed_clips_paths:
-            try:
-                c = VideoFileClip(clip_path)
-                
-                # Ensure clip duration matches segment duration
-                if c.duration < effective_seg_duration:
-                    c = c.fx(vfx.loop, duration=effective_seg_duration)
-                else:
-                    c = c.subclip(0, effective_seg_duration)
-                    
-                clips.append(c)
-            except Exception as e:
-                print(f"Failed to load processed clip {clip_path}: {e}")
-                clips.append(ColorClip(size=(self.width, self.height), color=(20, 20, 20), duration=effective_seg_duration))
+        temporary_dir = tempfile.mkdtemp(prefix="render_", dir=os.path.dirname(output_path))
+        concat_manifest = os.path.join(temporary_dir, "clips.txt")
+        visuals_path = os.path.join(temporary_dir, "visuals.mp4")
+        final_visuals = None
+        video = None
+        overlay_elements = []
+        try:
+            with open(concat_manifest, "w", encoding="utf-8", newline="\n") as manifest:
+                manifest.writelines(
+                    self._concat_manifest_entry(path) for path in processed_clips_paths
+                )
 
+            fps = self.config['niche']['fps']
+            subprocess.run(
+                [
+                    imageio_ffmpeg.get_ffmpeg_exe(),
+                    "-y",
+                    "-loglevel", "error",
+                    "-fflags", "+genpts",
+                    "-f", "concat",
+                    "-safe", "0",
+                    "-i", concat_manifest,
+                    "-t", f"{duration:.6f}",
+                    "-an",
+                    "-vf", f"setpts=PTS-STARTPTS,fps={fps},format=yuv420p",
+                    "-c:v", "libx264",
+                    "-preset", "veryfast",
+                    "-crf", "23",
+                    "-movflags", "+faststart",
+                    visuals_path,
+                ],
+                check=True,
+            )
 
-        final_visuals = concatenate_videoclips(clips, method="compose") if clips else ColorClip(size=(self.width, self.height), color=(20, 20, 20), duration=duration)
-        
-        # Ensure visual duration matches audio duration
-        print(f"DEBUG: Visual duration: {final_visuals.duration}, Audio duration: {duration}")
-        if final_visuals.duration < duration:
-            print("⚠️ Visuals shorter than audio. Looping visuals to match duration.")
-            final_visuals = final_visuals.fx(vfx.loop, duration=duration)
-        else:
+            final_visuals = VideoFileClip(visuals_path)
+            print(f"DEBUG: Visual duration: {final_visuals.duration}, Audio duration: {duration}")
+            if final_visuals.duration < duration - 0.05:
+                raise ValueError(
+                    f"Unique shots cover only {final_visuals.duration:.1f}s of {duration:.1f}s audio; "
+                    "refusing to repeat footage. Fetch more unique clips."
+                )
             final_visuals = final_visuals.subclip(0, duration)
-        
-        overlay_elements = [final_visuals]
+            overlay_elements = [final_visuals]
 
-        # 1. Add Watermark (Logo or Text)
-        logo_path = self.config['assets'].get('logo_path')
-        if os.path.exists(logo_path):
-            from moviepy.editor import ImageClip
-            watermark = ImageClip(logo_path).set_duration(duration).set_opacity(self.config['assets']['watermark_opacity']).resize(width=self.width*0.1)
-            watermark = watermark.set_position(("right", "top"))
-            overlay_elements.append(watermark)
-        else:
-            # Fallback text watermark if no logo
-            try:
-                txt_watermark = TextClip(brand_name, fontsize=30, color='white', font='Arial-Bold').set_duration(duration).set_opacity(0.3).set_position(("right", "top"))
-                overlay_elements.append(txt_watermark)
-            except:
-                print("Skipping text watermark (ImageMagick missing)")
+            logo_path = self.config['assets'].get('logo_path')
+            if os.path.exists(logo_path):
+                from moviepy.editor import ImageClip
+                watermark = ImageClip(logo_path).set_duration(duration).set_opacity(
+                    self.config['assets']['watermark_opacity']
+                ).resize(width=self.width * 0.1)
+                watermark = watermark.set_position(("right", "top"))
+                overlay_elements.append(watermark)
+            else:
+                try:
+                    from moviepy.editor import TextClip
+                    txt_watermark = TextClip(
+                        brand_name, fontsize=30, color='white', font='Arial-Bold'
+                    ).set_duration(duration).set_opacity(0.3).set_position(("right", "top"))
+                    overlay_elements.append(txt_watermark)
+                except Exception:
+                    print("Skipping text watermark (ImageMagick missing)")
 
-        # 2. Add Subscribe Animation at the end
-        anim_path = self.config['assets'].get('subscribe_anim_path')
-        if os.path.exists(anim_path):
-            sub_anim = VideoFileClip(anim_path).resize(width=self.width*0.3).set_position(("center", "bottom")).set_start(duration - 5)
-            overlay_elements.append(sub_anim)
+            anim_path = self.config['assets'].get('subscribe_anim_path')
+            if os.path.exists(anim_path):
+                sub_anim = VideoFileClip(anim_path).resize(width=self.width * 0.3)
+                sub_anim = sub_anim.set_position(("center", "bottom")).set_start(duration - 5)
+                overlay_elements.append(sub_anim)
 
-        video = CompositeVideoClip(overlay_elements).set_audio(audio_clip)
-        
-        # Windows-specific fix for temp file permission errors - Use unique filenames for parallel renders
-        unique_suffix = os.path.basename(output_path).replace('.mp4', '')
-        temp_audio = os.path.join(os.path.dirname(output_path), f"temp_audio_{unique_suffix}.m4a")
-        
-        video.write_videofile(
-            output_path,
-            fps=self.config['niche']['fps'],
-            codec='libx264',
-            audio_codec='aac',
-            bitrate='10000k',  # Increased for YouTube 1080p quality
-            TEMP_AUDIOFILE=temp_audio,
-            remove_temp=True
-        )
-        return output_path
-        
-        # Cleanup
-        for c in clips: c.close()
-        audio_clip.close()
+            video = CompositeVideoClip(overlay_elements).set_audio(audio_clip)
+            unique_suffix = os.path.basename(output_path).replace('.mp4', '')
+            temp_audio = os.path.join(os.path.dirname(output_path), f"temp_audio_{unique_suffix}.m4a")
+            video.write_videofile(
+                output_path,
+                fps=fps,
+                codec='libx264',
+                audio_codec='aac',
+                bitrate='10000k',
+                temp_audiofile=temp_audio,
+                remove_temp=True,
+            )
+        finally:
+            if video is not None:
+                video.close()
+            if final_visuals is not None:
+                final_visuals.close()
+            for overlay in overlay_elements[1:]:
+                overlay.close()
+            audio_clip.close()
+            shutil.rmtree(temporary_dir, ignore_errors=True)
         return output_path
 
 if __name__ == "__main__":

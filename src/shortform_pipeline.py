@@ -1,4 +1,5 @@
 import os
+from moviepy.editor import AudioFileClip
 from datetime import datetime
 from src.script_generator import ScriptGenerator
 from src.tts import TextToSpeech
@@ -17,14 +18,26 @@ def run_shortform():
 
     tts = TextToSpeech()
     segments = [s for s in script.get('segments', []) if isinstance(s, dict) and 'text' in s]
-    audio_path = tts.generate_voiceover(segments, output_path=f"{filename_base}_audio.mp3")
-    
+    audio_path = tts.generate_voiceover(segments, output_path=f"{filename_base}_audio.wav")
+    if not audio_path:
+        raise RuntimeError("Short-form voiceover generation failed; stopping before video rendering.")
+
+    audio_clip = AudioFileClip(audio_path)
+    audio_duration = audio_clip.duration
+    audio_clip.close()
     fetcher = AssetFetcher()
-    clips = []
-    for i, s in enumerate(segments):
-        query = s.get('visual_prompt', s.get('text', 'minimalist aesthetic'))
-        path = fetcher.fetch_video(query, f"output/clip_short_{i}.mp4")
-        if path: clips.append(ClipProcessor().process_clip(path, i, is_longform=False))
+    raw_clips = fetcher.fetch_video_shots(
+        segments,
+        audio_duration,
+        f"{filename_base}_raw",
+        orientation="portrait",
+        shot_seconds=5,
+    )
+    processor = ClipProcessor()
+    clips = [
+        processor.process_clip(path, i, is_longform=False)
+        for i, path in enumerate(raw_clips)
+    ]
     
     renderer = VideoRenderer(is_longform=False)
     video_path = renderer.render(audio_path, clips, f"{filename_base}.mp4")

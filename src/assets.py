@@ -1,71 +1,155 @@
-﻿import os
-import requests
-import yaml
+import json
+import math
+import os
+import random
 import time
+
+import requests
+
 from src.config_loader import load_config
 
-class AssetFetcher:
-    def __init__(self):
-        self.config = load_config()
-        
-        self.pexels_key = os.getenv("PEXELS_API_KEY", self.config.get("pexels_api_key", ""))
 
-    def fetch_video(self, query: str, output_path: str = "output/clip.mp4"):
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
+class AssetFetcher:
+    def __init__(self, history_path=None):
+        self.config = load_config()
+        self.pexels_key = os.getenv("PEXELS_API_KEY", self.config.get("pexels_api_key", ""))
+        self.history_path = history_path or os.path.join("output", "used_pexels_videos.json")
+        os.makedirs(os.path.dirname(os.path.abspath(self.history_path)), exist_ok=True)
+
+    def _reserve_asset_id(self, asset_id):
+        lock_path = f"{self.history_path}.lock"
+        with open(lock_path, "a+b") as lock_file:
+            if os.fstat(lock_file.fileno()).st_size == 0:
+                lock_file.write(b"0")
+                lock_file.flush()
+            lock_file.seek(0)
+
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+
+            try:
+                try:
+                    with open(self.history_path, "r", encoding="utf-8") as history_file:
+                        used_ids = set(json.load(history_file))
+                except (FileNotFoundError, json.JSONDecodeError):
+                    used_ids = set()
+
+                asset_id = str(asset_id)
+                if asset_id in used_ids:
+                    return False
+
+                used_ids.add(asset_id)
+                temp_path = f"{self.history_path}.{os.getpid()}.tmp"
+                with open(temp_path, "w", encoding="utf-8") as history_file:
+                    json.dump(sorted(used_ids), history_file)
+                os.replace(temp_path, self.history_path)
+                return True
+            finally:
+                lock_file.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+    @staticmethod
+    def _select_video_file(video_files, orientation):
+        dimension = "height" if orientation == "portrait" else "width"
+        candidates = [item for item in video_files if item.get("link")]
+        if not candidates:
+            return None
+
+        target_dimension = 1920
+        sufficient = [
+            item for item in candidates
+            if item.get(dimension, 0) >= target_dimension
+        ]
+        if sufficient:
+            return min(sufficient, key=lambda item: item.get(dimension, 0))
+        return max(candidates, key=lambda item: item.get(dimension, 0))
+
+    def fetch_video(self, query: str, output_path: str = "output/clip.mp4", orientation="landscape"):
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+
         if not self.pexels_key or self.pexels_key == "YOUR_PEXELS_API_KEY":
-            # Fallback placeholder or sample video if no key provided
-            print(f"Warning: Pexels API key not set. Using placeholder path for '{query}'.")
+            print(f"Warning: Pexels API key not set. Cannot fetch a unique shot for '{query}'.")
             return None
 
         headers = {"Authorization": self.pexels_key}
-        # Fetch more videos to ensure variety
-        url = f"https://api.pexels.com/videos/search?query={query}&orientation=landscape&per_page=15"
-        
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            videos = data.get("videos", [])
-            if videos:
-                # Pick a random video from the top results for variety
-                import random
-                selected_video = random.choice(videos)
-                video_files = selected_video.get("video_files", [])
-                
-                # Try to get best landscape file (width >= 1280)
-                best_file = None
-                # Sort by width descending to get the highest resolution available
-                sorted_files = sorted(video_files, key=lambda x: x.get("width", 0), reverse=True)
-                
-                for vf in sorted_files:
-                    if vf.get("width", 0) >= 1280:
-                        best_file = vf
-                        break
-                
-                if not best_file and sorted_files:
-                    best_file = sorted_files[0]
-                
-                if best_file:
-                    download_url = best_file["link"]
-                    print(f"   Downloading: {download_url[:50]}...")
-                    
-                    # Robust download with stream and retry
-                    for attempt in range(3):
-                        try:
-                            with requests.get(download_url, stream=True, timeout=30) as r:
-                                r.raise_for_status()
-                                with open(output_path, "wb") as f:
-                                    for chunk in r.iter_content(chunk_size=8192):
-                                        if chunk: f.write(chunk)
-                            print(f"   âœ… Saved: {output_path}")
-                            return output_path
-                        except Exception as e:
-                            print(f"   âš  Download attempt {attempt+1} failed: {e}")
-                            if os.path.exists(output_path):
-                                os.remove(output_path)
-                            time.sleep(5) # Wait before retry
-                    print(f"âŒ Failed to download {download_url} after 3 attempts.")
+        url = "https://api.pexels.com/videos/search"
+        try:
+            response = requests.get(
+                url,
+                headers=headers,
+                params={"query": query, "orientation": orientation, "per_page": 80},
+                timeout=30,
+            )
+            response.raise_for_status()
+            videos = response.json().get("videos", [])
+        except requests.RequestException as error:
+            print(f"Pexels search failed for '{query}': {error}")
+            return None
+
+        random.shuffle(videos)
+        for video in videos:
+            asset_id = video.get("id")
+            video_files = video.get("video_files", [])
+            if asset_id is None or not video_files:
+                continue
+
+            best_file = self._select_video_file(video_files, orientation)
+            if not best_file or not best_file.get("link"):
+                continue
+            if not self._reserve_asset_id(asset_id):
+                continue
+
+            download_url = best_file["link"]
+            print(f"   Downloading unique Pexels video {asset_id}: {download_url[:50]}...")
+            for attempt in range(3):
+                try:
+                    with requests.get(download_url, stream=True, timeout=60) as download:
+                        download.raise_for_status()
+                        with open(output_path, "wb") as output_file:
+                            for chunk in download.iter_content(chunk_size=8192):
+                                if chunk:
+                                    output_file.write(chunk)
+                    print(f"   Saved unique shot: {output_path}")
+                    return output_path
+                except requests.RequestException as error:
+                    print(f"   Download attempt {attempt + 1} failed: {error}")
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                    if attempt < 2:
+                        time.sleep(2)
+
+        print(f"No unused Pexels videos found for '{query}'.")
         return None
+
+    def fetch_video_shots(self, segments, duration, output_prefix, orientation="landscape", shot_seconds=5):
+        shot_count = max(1, math.ceil(duration / shot_seconds))
+        queries = [
+            segment.get("visual_prompt") or segment.get("text", "cinematic stoic philosophy")
+            for segment in segments
+            if isinstance(segment, dict)
+        ]
+        if not queries:
+            queries = ["cinematic stoic philosophy"]
+
+        paths = []
+        for index in range(shot_count):
+            query = queries[index % len(queries)]
+            path = self.fetch_video(
+                query,
+                f"{output_prefix}_shot_{index:03d}.mp4",
+                orientation=orientation,
+            )
+            if path:
+                paths.append(path)
+        return paths
+
 
 if __name__ == "__main__":
     fetcher = AssetFetcher()

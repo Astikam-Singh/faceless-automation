@@ -3,7 +3,7 @@ Thumbnail generator for Ancient Mindset Lab videos
 """
 import os
 import yaml
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 from moviepy.editor import VideoFileClip
 from src.config_loader import load_config
 
@@ -28,7 +28,7 @@ class ThumbnailGenerator:
             'highlight': '#FF4500'        # Trendy "YouTube" Orange-Red
         }
     
-    def generate_from_video(self, video_path, title, output_path=None):
+    def generate_from_video(self, video_path, title, output_path=None, thumbnail_text=None):
         """
         Generate high-CTR thumbnail with trendy styling.
         """
@@ -42,8 +42,8 @@ class ThumbnailGenerator:
         
         try:
             clip = VideoFileClip(video_path)
-            # Take a dramatic high-contrast frame
-            timestamp = min(clip.duration * 0.5, 10) 
+            # Avoid the opening/title transition; sample a frame from the first third.
+            timestamp = min(clip.duration * 0.3, 20)
             frame = clip.get_frame(timestamp)
             clip.close()
             
@@ -54,24 +54,26 @@ class ThumbnailGenerator:
             img = self._crop_to_aspect(img, self.width/self.height)
             img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
             
-            # Apply dark tint for text contrast
-            tint = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 150))
+            img = ImageEnhance.Contrast(img).enhance(1.15)
+            img = ImageEnhance.Color(img).enhance(1.12)
+
+            # Darken only the text side so the selected video frame remains visible.
+            alpha = Image.new('L', (self.width, 1))
+            alpha.putdata([
+                int(190 * max(0, 1 - x / (self.width * 0.72)))
+                for x in range(self.width)
+            ])
+            alpha = alpha.resize((self.width, self.height))
+            tint = Image.new('RGBA', (self.width, self.height), (5, 8, 12, 0))
+            tint.putalpha(alpha)
             img = Image.alpha_composite(img.convert('RGBA'), tint).convert('RGB')
             
             draw = ImageDraw.Draw(img)
-            
-            # Draw a thick border for "pop"
-            draw.rectangle([20, 20, self.width-20, self.height-20], outline=self.colors['accent'], width=15)
-            
-            # Add catchy text with high-contrast styling
-            self._add_trendy_text(draw, title)
-            
-            # Add CTA Arrow
-            self._add_cta_arrow(draw)
+            self._add_trendy_text(draw, thumbnail_text or self._thumbnail_copy(title))
             
             # Add logo if available
             if self.logo_path and os.path.exists(self.logo_path):
-                self._add_logo(img)
+                img = self._add_logo(img)
             
             img.save(output_path, 'JPEG', quality=95)
             print(f"âœ… Trendy thumbnail generated: {output_path}")
@@ -96,42 +98,45 @@ class ThumbnailGenerator:
         return img
     
     def _add_trendy_text(self, draw, text):
-        """Add high-contrast, trendy text with dynamic wrapping."""
-        try:
-            # Use a slightly smaller font size for long titles so they fit better
-            font = ImageFont.truetype("arialbd.ttf", 70)
-        except:
+        """Render a compact, readable 2-4 word hook instead of repeating the full title."""
+        words = str(text).strip().split()[:4]
+        if not words:
+            return
+        hook = " ".join(words).upper()
+        font_paths = [
+            "C:/Windows/Fonts/arialbd.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        ]
+        font = None
+        for size in (92, 82, 72, 62, 52):
+            for path in font_paths:
+                try:
+                    candidate = ImageFont.truetype(path, size)
+                    if all(draw.textbbox((0, 0), line, font=candidate)[2] <= self.width * 0.56
+                           for line in self._wrap_text(draw, hook, candidate, int(self.width * 0.56))):
+                        font = candidate
+                        break
+                except OSError:
+                    continue
+            if font:
+                break
+        if font is None:
             font = ImageFont.load_default()
-        
-        # Word wrap using the utility function
-        # Max width is width minus margins
-        max_text_width = self.width - 200
-        wrapped_lines = self._wrap_text(draw, text.upper(), font, max_text_width)
-        
-        # Calculate start position to center text vertically
-        line_height = 80
-        total_height = len(wrapped_lines) * line_height
-        y_offset = (self.height - total_height) // 2
-        
-        for line in wrapped_lines:
-            # Calculate width to center horizontally
-            bbox = draw.textbbox((0, 0), line, font=font)
-            text_width = bbox[2] - bbox[0]
-            x_offset = (self.width - text_width) // 2
-            
-            # Outline
-            for offset in [-4, 4]:
-                draw.text((x_offset+offset, y_offset+offset), line, font=font, fill='black')
-                
-            # Main Text
-            draw.text((x_offset, y_offset), line, font=font, fill=self.colors['accent'])
-            y_offset += line_height
-            
-    def _add_cta_arrow(self, draw):
-        """Add a simple trendy arrow visual cue."""
-        x, y = self.width - 250, self.height - 250
-        # Draw arrow shape
-        draw.polygon([(x, y), (x+100, y+100), (x, y+200), (x+50, y+100)], fill=self.colors['highlight'])
+
+        lines = self._wrap_text(draw, hook, font, int(self.width * 0.56))[:3]
+        line_height = int(font.size * 1.05)
+        y = (self.height - len(lines) * line_height) // 2
+        draw.rounded_rectangle((64, y - 28, 154, y - 18), radius=5, fill=self.colors['highlight'])
+        for index, line in enumerate(lines):
+            color = self.colors['accent'] if index == len(lines) - 1 else self.colors['text']
+            draw.text((64, y), line, font=font, fill=color, stroke_width=4, stroke_fill="#08090B")
+            y += line_height
+
+    @staticmethod
+    def _thumbnail_copy(title):
+        title = str(title).split(" | ")[-1]
+        return " ".join(title.split()[:4])
         
     def generate_static(self, title, subtitle=None, output_path=None):
         """

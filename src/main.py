@@ -23,6 +23,8 @@ def cleanup_old_files(config_path="config.yaml"):
     max_age_seconds = cleanup_days * 24 * 60 * 60
     current_time = time.time()
     for filename in os.listdir(output_dir):
+        if filename == "used_pexels_videos.json":
+            continue
         filepath = os.path.join(output_dir, filename)
         if os.path.isfile(filepath) and (current_time - os.path.getmtime(filepath)) > max_age_seconds:
             os.remove(filepath)
@@ -49,8 +51,8 @@ def main():
         l_segments = [s for s in long_script.get('segments', []) if isinstance(s, dict) and 'text' in s] if long_script else []
         s_segments = [s for s in short_script.get('segments', []) if isinstance(s, dict) and 'text' in s] if short_script else []
         
-        audio_long = tts.generate_voiceover(l_segments, output_path=f"{filename_base}_long_audio.mp3") if l_segments else None
-        audio_short = tts.generate_voiceover(s_segments, output_path=f"{filename_base}_short_audio.mp3") if s_segments else None
+        audio_long = tts.generate_voiceover(l_segments, output_path=f"{filename_base}_long_audio.wav") if l_segments else None
+        audio_short = tts.generate_voiceover(s_segments, output_path=f"{filename_base}_short_audio.wav") if s_segments else None
         
         # 3. Fetch Visual Assets
         print("\n[3/7] Fetching unique assets...")
@@ -102,7 +104,12 @@ def main():
         print(f"DEBUG: QA Success Score: {success}", flush=True)
         if success >= 0.85:
             # Thumbnail & Publish
-            thumb_path = ThumbnailGenerator().generate_from_video(longform_video, long_script['title'], output_path=f"{filename_base}_thumbnail.jpg")
+            thumb_path = ThumbnailGenerator().generate_from_video(
+                longform_video,
+                long_script['title'],
+                output_path=f"{filename_base}_thumbnail.jpg",
+                thumbnail_text=long_script.get('thumbnail_text'),
+            )
             
             # Auto-Publish
             print("\n[7/7] Auto-publishing...")
