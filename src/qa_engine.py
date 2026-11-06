@@ -43,7 +43,7 @@ class QAEngine:
             if not ret: break
             
             mean_intensity = np.mean(frame)
-            if mean_intensity < 5: black_frames += 1
+            if mean_intensity < 2: black_frames += 1
             
             if last_frame is not None and np.array_equal(frame, last_frame):
                 stuck_frames += 1

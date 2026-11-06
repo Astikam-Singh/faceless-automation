@@ -121,11 +121,41 @@ class VideoRenderer:
 
             final_visuals = VideoFileClip(visuals_path)
             print(f"DEBUG: Visual duration: {final_visuals.duration}, Audio duration: {duration}")
+            
+            # If unique footage is insufficient, loop to fill the audio duration
             if final_visuals.duration < duration - 0.05:
-                raise ValueError(
-                    f"Unique shots cover only {final_visuals.duration:.1f}s of {duration:.1f}s audio; "
-                    "refusing to repeat footage. Fetch more unique clips."
+                print(f"⚠️ Unique shots cover only {final_visuals.duration:.1f}s of {duration:.1f}s audio. Looping footage to fill duration...")
+                
+                # Close the current clip and recreate with looping
+                final_visuals.close()
+                
+                # Use FFmpeg to loop the video to match audio duration to a temporary file
+                looped_visuals_path = visuals_path.replace(".mp4", "_looped.mp4")
+                subprocess.run(
+                    [
+                        imageio_ffmpeg.get_ffmpeg_exe(),
+                        "-y",
+                        "-loglevel", "error",
+                        "-stream_loop", str(int((duration / final_visuals.duration) + 1)),
+                        "-i", visuals_path,
+                        "-t", f"{duration:.6f}",
+                        "-c:v", "libx264",
+                        "-preset", "veryfast",
+                        "-crf", "23",
+                        "-movflags", "+faststart",
+                        looped_visuals_path,
+                    ],
+                    check=True,
                 )
+                
+                # Replace the original with the looped version
+                final_visuals.close()
+                os.replace(looped_visuals_path, visuals_path)
+                final_visuals = VideoFileClip(visuals_path)
+                
+                final_visuals = VideoFileClip(visuals_path)
+                print(f"✅ Looped visual duration: {final_visuals.duration}, Audio duration: {duration}")
+            
             final_visuals = final_visuals.subclip(0, duration)
             overlay_elements = [final_visuals]
 

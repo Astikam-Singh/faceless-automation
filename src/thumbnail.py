@@ -22,10 +22,10 @@ class ThumbnailGenerator:
         
         # Brand colors
         self.colors = {
-            'background': '#101010',      # Deep black-charcoal
-            'accent': '#FFD700',          # Bright Gold
+            'background': '#101010',
+            'accent': '#FFD400',
             'text': '#FFFFFF',            # White
-            'highlight': '#FF4500'        # Trendy "YouTube" Orange-Red
+            'highlight': '#F02D2D'
         }
     
     def generate_from_video(self, video_path, title, output_path=None, thumbnail_text=None):
@@ -42,8 +42,8 @@ class ThumbnailGenerator:
         
         try:
             clip = VideoFileClip(video_path)
-            # Avoid the opening/title transition; sample a frame from the first third.
-            timestamp = min(clip.duration * 0.3, 20)
+            # The opening shot is deliberately generated for the thumbnail's Stoic subject.
+            timestamp = min(1.0, clip.duration * 0.02)
             frame = clip.get_frame(timestamp)
             clip.close()
             
@@ -57,10 +57,10 @@ class ThumbnailGenerator:
             img = ImageEnhance.Contrast(img).enhance(1.15)
             img = ImageEnhance.Color(img).enhance(1.12)
 
-            # Darken only the text side so the selected video frame remains visible.
+            # Keep the text area dark while leaving the image subject visible on the right.
             alpha = Image.new('L', (self.width, 1))
             alpha.putdata([
-                int(190 * max(0, 1 - x / (self.width * 0.72)))
+                int(220 * max(0, 1 - x / (self.width * 0.76)))
                 for x in range(self.width)
             ])
             alpha = alpha.resize((self.width, self.height))
@@ -98,23 +98,27 @@ class ThumbnailGenerator:
         return img
     
     def _add_trendy_text(self, draw, text):
-        """Render a compact, readable 2-4 word hook instead of repeating the full title."""
-        words = str(text).strip().split()[:4]
+        """Render a bold, condensed, high-contrast hook without repeating the full title."""
+        words = str(text).strip().split()[:7]
         if not words:
             return
         hook = " ".join(words).upper()
         font_paths = [
+            "C:/Windows/Fonts/impact.ttf",
             "C:/Windows/Fonts/arialbd.ttf",
+            "C:/Windows/Fonts/ArialN.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
             "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
         ]
         font = None
-        for size in (92, 82, 72, 62, 52):
+        for size in (112, 102, 92, 82, 72, 62):
             for path in font_paths:
                 try:
                     candidate = ImageFont.truetype(path, size)
-                    if all(draw.textbbox((0, 0), line, font=candidate)[2] <= self.width * 0.56
-                           for line in self._wrap_text(draw, hook, candidate, int(self.width * 0.56))):
+                    if all(
+                        draw.textbbox((0, 0), line, font=candidate)[2] <= self.width * 0.62
+                        for line in self._wrap_text(draw, hook, candidate, int(self.width * 0.62))
+                    ):
                         font = candidate
                         break
                 except OSError:
@@ -124,12 +128,18 @@ class ThumbnailGenerator:
         if font is None:
             font = ImageFont.load_default()
 
-        lines = self._wrap_text(draw, hook, font, int(self.width * 0.56))[:3]
-        line_height = int(font.size * 1.05)
+        lines = self._wrap_text(draw, hook, font, int(self.width * 0.62))[:4]
+        line_height = int(font.size * 0.98)
         y = (self.height - len(lines) * line_height) // 2
-        draw.rounded_rectangle((64, y - 28, 154, y - 18), radius=5, fill=self.colors['highlight'])
+        draw.rounded_rectangle((64, y - 30, 210, y - 18), radius=2, fill=self.colors['highlight'])
         for index, line in enumerate(lines):
-            color = self.colors['accent'] if index == len(lines) - 1 else self.colors['text']
+            if index == len(lines) - 1:
+                color = self.colors['accent']
+            elif index == 0 and len(lines) >= 3:
+                color = self.colors['highlight']
+            else:
+                color = self.colors['text']
+            draw.text((68, y + 5), line, font=font, fill="#050505", stroke_width=7, stroke_fill="#050505")
             draw.text((64, y), line, font=font, fill=color, stroke_width=4, stroke_fill="#08090B")
             y += line_height
 
