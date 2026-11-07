@@ -8,6 +8,7 @@ from src.renderer import VideoRenderer
 from src.clip_processor import ClipProcessor
 from src.publishers.youtube import YouTubePublisher
 from src.publishers.instagram import InstagramPublisher
+from src.publishers.facebook import FacebookPublisher
 
 def run_shortform():
     print("=== Starting Short-form Pipeline (45-60 secs) ===")
@@ -42,10 +43,12 @@ def run_shortform():
     renderer = VideoRenderer(is_longform=False)
     video_path = renderer.render(audio_path, clips, f"{filename_base}.mp4")
     
-    # Publish to YouTube Shorts and Instagram Reels
+    # Publish to YouTube Shorts, Instagram Reels, and Facebook Reels
     YouTubePublisher().upload_video(script, video_path)
     ig_pub = InstagramPublisher()
     if ig_pub.is_ready(): ig_pub.upload_reel(script, video_path)
+    fb_pub = FacebookPublisher()
+    if fb_pub.is_ready(): fb_pub.upload_reel(script, video_path)
 
 if __name__ == "__main__":
     run_shortform()

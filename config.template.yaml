@@ -44,6 +44,10 @@ publishing:
     enabled: true
     access_token: "TEMP"
     instagram_account_id: "TEMP"
+  facebook:
+    enabled: true
+    access_token: "TEMP"
+    page_id: "TEMP"
 
 video_formats:
   youtube_longform:
