@@ -83,6 +83,9 @@ class VideoRenderer:
         brand_name = self.config['niche'].get('brand_name', 'Ancient Mindset Lab')
         try:
             source_durations = self._get_source_durations(processed_clips_paths)
+            while sum(source_durations) < duration and source_durations:
+                processed_clips_paths = list(processed_clips_paths) + list(processed_clips_paths)
+                source_durations = self._get_source_durations(processed_clips_paths)
             self._allocate_shot_durations(duration, source_durations)
         except Exception:
             audio_clip.close()
