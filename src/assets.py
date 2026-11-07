@@ -78,19 +78,36 @@ class AssetFetcher:
             print(f"Warning: Pexels API key not set. Cannot fetch a unique shot for '{query}'.")
             return None
 
+        fallback_queries = [
+            query,
+            " ".join([w for w in query.split() if len(w) > 3][:3]) if len(query.split()) > 2 else "",
+            "stoic philosophy",
+            "ancient marble bust",
+            "dark cinematic background"
+        ]
+        fallback_queries = [q for q in dict.fromkeys(fallback_queries) if q]
+
         headers = {"Authorization": self.pexels_key}
         url = "https://api.pexels.com/videos/search"
-        try:
-            response = requests.get(
-                url,
-                headers=headers,
-                params={"query": query, "orientation": orientation, "per_page": 80},
-                timeout=30,
-            )
-            response.raise_for_status()
-            videos = response.json().get("videos", [])
-        except requests.RequestException as error:
-            print(f"Pexels search failed for '{query}': {error}")
+        
+        videos = []
+        for q in fallback_queries:
+            try:
+                response = requests.get(
+                    url,
+                    headers=headers,
+                    params={"query": q, "orientation": orientation, "per_page": 80},
+                    timeout=30,
+                )
+                if response.status_code == 200:
+                    videos = response.json().get("videos", [])
+                    if videos:
+                        break
+            except requests.RequestException:
+                continue
+
+        if not videos:
+            print(f"Pexels search failed for all fallbacks of '{query}'.")
             return None
 
         random.shuffle(videos)

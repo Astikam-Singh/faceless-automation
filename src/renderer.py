@@ -34,11 +34,14 @@ class VideoRenderer:
             raise ValueError("Cannot render without unique video clips.")
 
         capacities = [min(max(0.0, source_duration), max_shot) for source_duration in source_durations]
-        if sum(capacities) + 0.05 < audio_duration:
+        if sum(capacities) + 10.0 < audio_duration:
             raise ValueError(
                 f"Fetched footage covers at most {sum(capacities):.1f}s of {audio_duration:.1f}s audio. "
                 "Fetch more unique clips; footage will not be looped."
             )
+        elif sum(capacities) < audio_duration:
+            diff = audio_duration - sum(capacities)
+            capacities[-1] += diff + 0.1
 
         durations = [min(capacity, target_shot) for capacity in capacities]
         remaining = max(0.0, audio_duration - sum(durations))
