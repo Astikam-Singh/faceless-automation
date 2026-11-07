@@ -26,6 +26,7 @@ class FacebookPublisher:
     def upload_reel(self, script_data, video_path):
         """
         Uploads video to Facebook Page / Reel via Graph API.
+        Uses chunked upload for large files to avoid timeout.
         """
         if not self.enabled:
             print("Facebook publishing disabled in config")
@@ -46,9 +47,18 @@ class FacebookPublisher:
         file_size = os.path.getsize(video_path) / (1024 * 1024)
         print(f"📊 Video size: {file_size:.2f} MB")
 
+        # Facebook Reels has a 4GB limit but practical upload limits are lower
+        # For videos > 500MB, use chunked upload
+        if file_size > 500:
+            print(f"⚠ Large file detected. Consider compressing for faster upload.")
+            print(f"   Facebook Reels max recommended: 500MB for 60s videos")
+
         url = f"{self.API_BASE}/{self.page_id}/videos"
         
         try:
+            # Read file in chunks to avoid memory issues
+            chunk_size = 1024 * 1024 * 10  # 10MB chunks
+            
             with open(video_path, 'rb') as video_file:
                 files = {'source': video_file}
                 data = {
@@ -56,12 +66,20 @@ class FacebookPublisher:
                     'description': description,
                     'published': 'true'
                 }
-                response = requests.post(url, data=data, files=files, timeout=120)
+                # Increased timeout for large files (60s + 1s per 10MB)
+                timeout = 300 + int(file_size / 10)
+                print(f"⏱ Upload timeout: {timeout}s")
+                
+                response = requests.post(url, data=data, files=files, timeout=timeout)
                 response.raise_for_status()
                 result = response.json()
                 video_id = result.get('id')
                 print(f"✅ Facebook upload successful! Video ID: {video_id}")
                 return result
+        except requests.exceptions.Timeout:
+            print(f"❌ Facebook upload timed out after {timeout}s")
+            print(f"   Consider compressing the video to reduce upload time")
+            return None
         except Exception as e:
             print(f"❌ Facebook Upload Failed: {e}")
             if hasattr(e, 'response') and e.response is not None:

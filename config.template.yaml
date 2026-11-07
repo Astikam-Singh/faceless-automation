@@ -41,11 +41,11 @@ publishing:
     client_secret_file: "client_secret.json"
     channel_id: "UCY1nPXiNzSOfRbgWm2WqSCQ"
   instagram:
-    enabled: true
+    enabled: false
     access_token: "TEMP"
     instagram_account_id: "TEMP"
   facebook:
-    enabled: true
+    enabled: false
     access_token: "TEMP"
     page_id: "TEMP"
 
