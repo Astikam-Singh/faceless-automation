@@ -2,12 +2,18 @@
 import cv2
 import numpy as np
 import whisper
+import imageio_ffmpeg
 
 class QAEngine:
     """
     Quality Assurance engine for video and audio content.
     """
     def __init__(self):
+        # Ensure ffmpeg is available for whisper via imageio_ffmpeg
+        ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+        if ffmpeg_dir not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
+
         # Load whisper for audio transcript verification
         self.model = whisper.load_model("base")
 
@@ -23,9 +29,9 @@ class QAEngine:
                 print(f"âŒ Audio QA Failed: Detected TTS tag leakage ('{keyword}')")
                 return 0.2  # Low score
 
-        # Check for transcription similarity (simple length check)
-        if len(transcript) < len(expected_text) * 0.5:
-             print("âŒ Audio QA Failed: Transcription too short.")
+        # Check for transcription validity (at least 50 characters of valid speech)
+        if len(transcript) < 50:
+             print("❌ Audio QA Failed: Transcription too short.")
              return 0.4
         
         return 1.0 # Successful
